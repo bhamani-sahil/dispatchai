@@ -1,5 +1,5 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from './storage';
 
 export const BASE_URL = 'https://dispatchai-production-a289.up.railway.app';
 
@@ -10,7 +10,7 @@ const api = axios.create({
 
 // Attach token to every request
 api.interceptors.request.use(async (config) => {
-  const token = await SecureStore.getItemAsync('auth_token');
+  const token = await storage.getItemAsync('auth_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -22,7 +22,7 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      await SecureStore.deleteItemAsync('auth_token');
+      await storage.deleteItemAsync('auth_token');
       // Dynamic import avoids circular dependency with router
       const { router } = await import('expo-router');
       router.replace('/(auth)/login' as any);

@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import { storage } from './storage';
 import { BASE_URL } from './api';
 
 function fetchWithTimeout(url: string, options: RequestInit, ms = 20000): Promise<Response> {
@@ -26,7 +26,7 @@ export async function login(email: string, password: string): Promise<string> {
   }
   const data = await res.json();
   const token = data.access_token;
-  await SecureStore.setItemAsync('auth_token', token);
+  await storage.setItemAsync('auth_token', token);
   return token;
 }
 
@@ -48,14 +48,14 @@ export async function signup(email: string, password: string): Promise<string> {
   }
   const data = await res.json();
   const token = data.access_token;
-  await SecureStore.setItemAsync('auth_token', token);
+  await storage.setItemAsync('auth_token', token);
   return token;
 }
 
 export async function logout(): Promise<void> {
-  await SecureStore.deleteItemAsync('auth_token');
+  await storage.deleteItemAsync('auth_token');
 }
 
 export async function getToken(): Promise<string | null> {
-  return SecureStore.getItemAsync('auth_token');
+  return storage.getItemAsync('auth_token');
 }
