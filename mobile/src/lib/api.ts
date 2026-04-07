@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-export const BASE_URL = 'http://10.0.0.189:8000';
+export const BASE_URL = 'https://dispatchai-production-a289.up.railway.app';
 
 const api = axios.create({
   baseURL: BASE_URL,
