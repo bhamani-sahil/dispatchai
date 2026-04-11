@@ -383,6 +383,100 @@ async def _process_message(form_data: dict):
         print(f"Webhook error: {e}")
 
 
+async def _send_missed_call_sms(caller_phone: str, business: dict):
+    """Create a conversation and send the missed-call opener SMS."""
+    try:
+        business_id = business["id"]
+        agent_name = business.get("agent_name") or "Anna"
+        business_name = business.get("name") or "us"
+
+        # Skip if caller already has an active conversation
+        existing = supabase_service.table("conversations").select("id").eq(
+            "business_id", business_id
+        ).eq("customer_phone", caller_phone).in_(
+            "status", ["ai_handling", "human_takeover", "needs_review"]
+        ).execute()
+
+        if existing.data:
+            print(f"[voice] Active convo exists for {caller_phone} — skipping opener")
+            return
+
+        # Create conversation
+        new_convo = supabase_service.table("conversations").insert({
+            "business_id": business_id,
+            "customer_phone": caller_phone,
+            "status": "ai_handling",
+        }).execute()
+        conversation_id = new_convo.data[0]["id"]
+
+        opener = (
+            f"Hi! We missed your call — I'm {agent_name}, {business_name}'s text assistant. "
+            f"How can I help you today? 😊"
+        )
+
+        supabase_service.table("messages").insert({
+            "conversation_id": conversation_id,
+            "sender_type": "ai_agent",
+            "body": opener,
+            "ai_confidence": 1.0,
+        }).execute()
+
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: send_sms(to=caller_phone, body=opener))
+        print(f"[voice] Missed-call opener sent to {caller_phone}")
+
+    except Exception as e:
+        print(f"[voice] _send_missed_call_sms error: {e}")
+
+
+@router.post("/api/webhooks/twilio/voice")
+async def twilio_voice(request: Request):
+    """Handles calls forwarded to Twilio — plays a brief message, hangs up, sends opener SMS."""
+    try:
+        form = await request.form()
+        caller_phone = normalize_phone(form.get("From", ""))
+        twilio_phone = form.get("To", "")
+        print(f"[voice] Incoming call From={caller_phone} To={twilio_phone}")
+
+        # Look up business by Twilio number
+        twilio_digits = re.sub(r'\D', '', twilio_phone)
+        all_biz = supabase_service.table("businesses").select("*").execute()
+        biz_match = next(
+            (b for b in (all_biz.data or [])
+             if re.sub(r'\D', '', b.get("twilio_phone") or "") == twilio_digits),
+            None
+        )
+
+        if not biz_match:
+            print(f"[voice] No business found for {twilio_phone}")
+            return Response(
+                content='<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>',
+                media_type="application/xml"
+            )
+
+        business_name = biz_match.get("name") or "us"
+
+        twiml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Response>'
+            f'<Say voice="Polly.Joanna">Thanks for calling {business_name}! '
+            f'We\'ll follow up with you over text right away.</Say>'
+            '<Hangup/>'
+            '</Response>'
+        )
+
+        asyncio.create_task(_send_missed_call_sms(caller_phone, biz_match))
+
+        return Response(content=twiml, media_type="application/xml")
+
+    except Exception as e:
+        print(f"[voice] webhook error: {e}")
+        return Response(
+            content='<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>',
+            media_type="application/xml"
+        )
+
+
 @router.post("/api/webhooks/twilio/inbound")
 async def twilio_inbound(request: Request):
     try:
