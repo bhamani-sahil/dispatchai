@@ -1,7 +1,7 @@
 # DispatchAI — Operations Guide
 
 ## Last Updated
-2026-04-07 (Session 3 — first live deployment)
+2026-04-11 (Session 4 — missed-call voice webhook live)
 
 ---
 
@@ -14,7 +14,8 @@
 | Supabase | https://nylkvrmsdjcrbnskqmuh.supabase.co |
 
 **Twilio number:** +18257730166
-**Twilio webhook:** `https://dispatchai-production-a289.up.railway.app/api/webhooks/twilio/inbound`
+**Twilio SMS webhook:** `https://dispatchai-production-a289.up.railway.app/api/webhooks/twilio/inbound`
+**Twilio Voice webhook:** `https://dispatchai-production-a289.up.railway.app/api/webhooks/twilio/voice`
 
 ---
 
@@ -44,6 +45,22 @@ Railway and Vercel auto-redeploy on every push to `main`. ~1-2 min for Railway, 
 
 ---
 
+## 📞 Setting Up Missed-Call Forwarding (Manual — Pilot)
+
+Do this with the business owner when onboarding:
+
+1. **Confirm their carrier supports conditional forwarding** (Bell, Rogers, Telus all do)
+2. **Disable their existing voicemail** — our system replaces it
+3. **Set conditional forward** (forward when unanswered):
+   - iPhone: Settings → Phone → Call Forwarding → enter Twilio number
+   - Bell/Rogers dial code: `*21*+18257730166#` then call
+4. **Configure Twilio Console** → click the number → Voice & Fax → "A Call Comes In" → Webhook → `https://dispatchai-production-a289.up.railway.app/api/webhooks/twilio/voice` → POST → Save
+5. **Test** — call their number from another phone, let it ring, confirm voice message plays and SMS arrives
+
+**Pitch:** *"You know how many jobs you've lost because someone called, you were under a car, didn't pick up, and moved on? One forwarding code and every missed call becomes a text conversation Anna handles automatically."*
+
+---
+
 ## 📱 Onboarding a New Pilot Business
 
 1. **Sign them up** — open Vercel PWA URL → Sign Up → walk through onboarding
@@ -56,7 +73,7 @@ Railway and Vercel auto-redeploy on every push to `main`. ~1-2 min for Railway, 
 
 ---
 
-## ✅ Everything Working as of 2026-04-07
+## ✅ Everything Working as of 2026-04-11
 
 ### Core Pipeline
 - SMS in → Gemini AI → SMS reply → booking confirmed ✅
@@ -97,6 +114,13 @@ Railway and Vercel auto-redeploy on every push to `main`. ~1-2 min for Railway, 
 - Custom AI instructions ✅
 - Services CRUD with pricing ✅
 
+### Missed-Call Entry Point
+- Customer calls business's real number → no answer → conditional forward to Twilio ✅
+- Twilio plays: *"Thanks for calling [Business]! We'll follow up over text right away."* ✅
+- SMS opener sent to caller automatically: *"Hi! We missed your call — I'm [Agent], [Business]'s text assistant..."* ✅
+- Full Gemini conversation + booking flows from there ✅
+- If caller already has active convo — skips opener, existing thread continues ✅
+
 ### Infrastructure
 - Backend on Railway — always on, no ngrok ✅
 - Frontend PWA on Vercel — shareable URL, Add to Home Screen ✅
@@ -109,11 +133,12 @@ Railway and Vercel auto-redeploy on every push to `main`. ~1-2 min for Railway, 
 
 ## 🐛 Known Issues / Pre-Launch Cleanup
 
-1. **`test_chat.py`** — debug endpoints still exposed. Delete before public launch.
-2. **No password minimum** — `123456` is accepted. Add 8-char minimum before public launch.
-3. **No Twilio webhook signature validation** — low risk for pilot, add before scaling.
-4. **PDF open from Brain** — verify Supabase Storage bucket is public and `pdf_url` resolves.
-5. **`admin_ui.py`, `app_ui.py`, `calendar_ui.py`** — old web UI routes, candidates for deletion.
+1. **Sunday bookings** — Anna books on Sunday but calendar doesn't update. Fix in progress.
+2. **`test_chat.py`** — debug endpoints still exposed. Delete before public launch.
+3. **No password minimum** — `123456` is accepted. Add 8-char minimum before public launch.
+4. **No Twilio webhook signature validation** — low risk for pilot, add before scaling.
+5. **PDF open from Brain** — verify Supabase Storage bucket is public and `pdf_url` resolves.
+6. **`admin_ui.py`, `app_ui.py`, `calendar_ui.py`** — old web UI routes, candidates for deletion.
 
 ---
 
