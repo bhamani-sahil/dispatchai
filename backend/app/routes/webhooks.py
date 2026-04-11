@@ -2,7 +2,7 @@ import asyncio
 import random
 import re
 from datetime import date, timedelta
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Request, Response
 from app.utils.supabase_client import supabase_service
 from app.services.agent import generate_response, summarize_booking, score_confidence
 from app.services.prompt_builder import build_prompt
@@ -383,7 +383,7 @@ async def _process_message(form_data: dict):
         print(f"Webhook error: {e}")
 
 
-async def _send_missed_call_sms(caller_phone: str, business: dict):
+def _send_missed_call_sms(caller_phone: str, business: dict):
     """Create a conversation and send the missed-call opener SMS."""
     try:
         business_id = business["id"]
@@ -421,8 +421,7 @@ async def _send_missed_call_sms(caller_phone: str, business: dict):
             "ai_confidence": 1.0,
         }).execute()
 
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, lambda: send_sms(to=caller_phone, body=opener))
+        send_sms(to=caller_phone, body=opener)
         print(f"[voice] Missed-call opener sent to {caller_phone}")
 
     except Exception as e:
@@ -430,7 +429,7 @@ async def _send_missed_call_sms(caller_phone: str, business: dict):
 
 
 @router.post("/api/webhooks/twilio/voice")
-async def twilio_voice(request: Request):
+async def twilio_voice(request: Request, background_tasks: BackgroundTasks):
     """Handles calls forwarded to Twilio — plays a brief message, hangs up, sends opener SMS."""
     try:
         form = await request.form()
@@ -465,7 +464,7 @@ async def twilio_voice(request: Request):
             '</Response>'
         )
 
-        asyncio.create_task(_send_missed_call_sms(caller_phone, biz_match))
+        background_tasks.add_task(_send_missed_call_sms, caller_phone, biz_match)
 
         return Response(content=twiml, media_type="application/xml")
 
