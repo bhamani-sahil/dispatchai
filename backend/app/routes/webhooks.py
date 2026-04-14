@@ -1,5 +1,4 @@
 import asyncio
-import random
 import re
 from datetime import date, timedelta
 from fastapi import APIRouter, BackgroundTasks, Request, Response
@@ -18,6 +17,10 @@ TWIML_EMPTY = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 # Dedup — Twilio retries if we don't respond fast enough
 _processed_sids: set[str] = set()
 
+# Debounce — bundle rapid multi-message texts into one Gemini call
+_debounce_tasks: dict[str, asyncio.Task] = {}
+_DEBOUNCE_SECONDS = 5
+
 
 def normalize_phone(raw: str) -> str:
     """Normalize any phone format to +1XXX-XXX-XXXX. Falls back to original if not 10/11 digits."""
@@ -29,9 +32,6 @@ def normalize_phone(raw: str) -> str:
     return raw
 
 
-def _human_delay(message_length: int) -> float:
-    """Return a short delay in seconds — fast enough to feel responsive."""
-    return random.uniform(3, 8)
 
 # ── Cancel / Reschedule intent ─────────────────────────────────────────────
 
@@ -235,14 +235,17 @@ async def _detect_and_book(ai_text: str, messages: list[dict], customer_phone: s
         return
 
 
-async def _process_message(form_data: dict):
+async def _save_incoming(form_data: dict) -> tuple[str | None, dict | None, str | None]:
+    """
+    Save incoming message to DB immediately. Never loses a message.
+    Returns (conversation_id, business, customer_phone) or (None, None, None).
+    """
     try:
         customer_phone = normalize_phone(form_data.get("From", ""))
         twilio_phone = form_data.get("To", "")
         body = form_data.get("Body", "").strip()
         twilio_sid = form_data.get("MessageSid", "")
 
-        # 1. Find business by twilio_phone
         print(f"[webhook] From={customer_phone} To={twilio_phone}")
         twilio_digits = re.sub(r'\D', '', twilio_phone)
         all_biz = supabase_service.table("businesses").select("*").execute()
@@ -253,18 +256,18 @@ async def _process_message(form_data: dict):
         )
         print(f"[webhook] biz lookup match={'yes' if biz_match else 'no'} (digits={twilio_digits})")
         if not biz_match:
-            return
+            return None, None, None
 
-        business = biz_match
-        business_id = business["id"]
+        business_id = biz_match["id"]
 
-        # 2. Find or create conversation (check all active statuses)
-        convo_result = supabase_service.table("conversations").select("*").eq("business_id", business_id).eq("customer_phone", customer_phone).in_("status", ["ai_handling", "human_takeover", "needs_review"]).execute()
+        convo_result = supabase_service.table("conversations").select("*").eq(
+            "business_id", business_id
+        ).eq("customer_phone", customer_phone).in_(
+            "status", ["ai_handling", "human_takeover", "needs_review"]
+        ).execute()
 
         if convo_result.data:
-            conversation = convo_result.data[0]
-            conversation_id = conversation["id"]
-            conversation_status = conversation["status"]
+            conversation_id = convo_result.data[0]["id"]
         else:
             new_convo = supabase_service.table("conversations").insert({
                 "business_id": business_id,
@@ -272,9 +275,7 @@ async def _process_message(form_data: dict):
                 "status": "ai_handling",
             }).execute()
             conversation_id = new_convo.data[0]["id"]
-            conversation_status = "ai_handling"
 
-        # 3. Save customer message immediately
         supabase_service.table("messages").insert({
             "conversation_id": conversation_id,
             "sender_type": "customer",
@@ -282,31 +283,64 @@ async def _process_message(form_data: dict):
             "twilio_message_sid": twilio_sid,
         }).execute()
 
-        # 4. Get conversation history
-        history_result = supabase_service.table("messages").select("*").eq("conversation_id", conversation_id).order("created_at").execute()
+        return conversation_id, biz_match, customer_phone
+
+    except Exception as e:
+        print(f"[save_incoming] error: {e}")
+        return None, None, None
+
+
+async def _ai_process(conversation_id: str, business: dict, customer_phone: str):
+    """
+    Run AI processing for a conversation. Called after debounce fires.
+    Reads fresh state from DB — all messages saved during the debounce window are included.
+    """
+    try:
+        business_id = business["id"]
+
+        # Re-read conversation status fresh (may have changed during debounce)
+        convo_result = supabase_service.table("conversations").select("*").eq("id", conversation_id).execute()
+        if not convo_result.data:
+            return
+        conversation_status = convo_result.data[0]["status"]
+
+        # Get full conversation history
+        history_result = supabase_service.table("messages").select("*").eq(
+            "conversation_id", conversation_id
+        ).order("created_at").execute()
         messages = history_result.data or []
 
-        # 5. Get services for this business
-        services_result = supabase_service.table("services").select("*").eq("business_id", business_id).eq("is_active", True).execute()
+        # Get services
+        services_result = supabase_service.table("services").select("*").eq(
+            "business_id", business_id
+        ).eq("is_active", True).execute()
         services = services_result.data or []
 
-        # 5b. Message cap — stop Gemini being called on runaway conversations
+        # Message cap
         if len(messages) > 20:
             print(f"[{conversation_id}] Message cap hit — closing conversation")
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, lambda: send_sms(to=customer_phone, body="Thanks for reaching out! To continue, please text us again anytime. 👍"))
+            await loop.run_in_executor(None, lambda: send_sms(
+                to=customer_phone,
+                body="Thanks for reaching out! To continue, please text us again anytime. 👍"
+            ))
             supabase_service.table("conversations").update({"status": "closed"}).eq("id", conversation_id).execute()
             return
 
-        # 6. If human has taken over — save message but skip AI entirely
+        # Human takeover — skip AI
         if conversation_status == "human_takeover":
             print(f"[{conversation_id}] Human takeover active — skipping Gemini")
             return
 
-        # 6a. Cancel / Reschedule — handle directly without Gemini if possible
-        manage_intent = _detect_manage_intent(body)
+        # Use the latest customer message for intent detection
+        latest_body = next(
+            (m["body"] for m in reversed(messages) if m["sender_type"] == "customer"), ""
+        )
+
         business_hours = business.get("business_hours") or None
         print(f"[{conversation_id}] business_hours = {business_hours}")
+
+        manage_intent = _detect_manage_intent(latest_body)
 
         if manage_intent == "cancel":
             print(f"[{conversation_id}] Cancel intent detected")
@@ -322,7 +356,7 @@ async def _process_message(form_data: dict):
 
         if manage_intent == "reschedule":
             print(f"[{conversation_id}] Reschedule intent detected")
-            reply = await _handle_reschedule(body, customer_phone, business_id, conversation_id, business_hours=business_hours)
+            reply = await _handle_reschedule(latest_body, customer_phone, business_id, conversation_id, business_hours=business_hours)
             if reply:
                 supabase_service.table("messages").insert({
                     "conversation_id": conversation_id, "sender_type": "ai_agent",
@@ -332,15 +366,9 @@ async def _process_message(form_data: dict):
                 loop = asyncio.get_event_loop()
                 await loop.run_in_executor(None, lambda: send_sms(to=customer_phone, body=reply))
                 return
-            # reply is None — slot unavailable or ambiguous, fall through to Gemini
             print(f"[{conversation_id}] Reschedule slot unavailable — falling through to Gemini")
 
-        # 6b. Human-like delay before Gemini reply
-        delay = _human_delay(len(body))
-        print(f"[{conversation_id}] Waiting {delay:.1f}s before replying...")
-        await asyncio.sleep(delay)
-
-        # 6c. Build prompt and call Gemini
+        # Call Gemini
         print(f"[{conversation_id}] Calling Gemini with {len(messages)} messages in history...")
         booking_check = supabase_service.table("bookings").select("id").eq("conversation_id", conversation_id).limit(1).execute()
         booking_confirmed = bool(booking_check.data)
@@ -348,15 +376,13 @@ async def _process_message(form_data: dict):
         ai_response, _ = await generate_response(prompt)
         print(f"[{conversation_id}] Gemini response ({len(ai_response)} chars): {ai_response[:80]}...")
 
-        # 7. Score confidence
-        confidence = score_confidence(body, ai_response, services)
+        confidence = score_confidence(latest_body, ai_response, services)
         needs_review = confidence <= 0.65
         print(f"[{conversation_id}] Confidence: {confidence} {'— flagging needs_review' if needs_review else ''}")
 
         if needs_review:
             ai_response = f"Great question — let me have {business.get('name', 'the owner')} follow up with you directly on this one!"
 
-        # 8. Save AI response
         supabase_service.table("messages").insert({
             "conversation_id": conversation_id,
             "sender_type": "ai_agent",
@@ -364,23 +390,27 @@ async def _process_message(form_data: dict):
             "ai_confidence": confidence,
         }).execute()
 
-        # 9. Update conversation — set needs_review if low confidence, else update timestamp
         update_payload = {"last_message_at": "now()"}
         if needs_review:
             update_payload["status"] = "needs_review"
         supabase_service.table("conversations").update(update_payload).eq("id", conversation_id).execute()
 
-        # 10. Send SMS reply
         print(f"[{conversation_id}] Sending SMS to {customer_phone}...")
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, lambda: send_sms(to=customer_phone, body=ai_response))
         print(f"[{conversation_id}] SMS sent!")
 
-        # 11. Detect booking confirmation and persist to Supabase
         await _detect_and_book(ai_response, messages, customer_phone, conversation_id, business_id, business_hours=business_hours)
 
     except Exception as e:
-        print(f"Webhook error: {e}")
+        print(f"[ai_process] error: {e}")
+
+
+async def _debounced_ai_process(conversation_id: str, business: dict, customer_phone: str):
+    """Wait for debounce window then process. Cancelled and restarted if another message arrives."""
+    await asyncio.sleep(_DEBOUNCE_SECONDS)
+    _debounce_tasks.pop(conversation_id, None)
+    await _ai_process(conversation_id, business, customer_phone)
 
 
 def _send_missed_call_sms(caller_phone: str, business: dict):
@@ -489,8 +519,21 @@ async def twilio_inbound(request: Request):
         if twilio_sid:
             _processed_sids.add(twilio_sid)
 
-        # Fire and forget — return TwiML immediately so Twilio doesn't retry
-        asyncio.create_task(_process_message(dict(form)))
+        # Save message immediately — never lose it
+        conversation_id, business, customer_phone = await _save_incoming(dict(form))
+
+        if conversation_id and business and customer_phone:
+            # Cancel any pending debounce for this conversation and restart the timer.
+            # If another message arrives within 5s, the timer resets and Gemini gets
+            # called once with all messages bundled together.
+            existing = _debounce_tasks.pop(conversation_id, None)
+            if existing:
+                existing.cancel()
+                print(f"[{conversation_id}] Debounce reset — bundling messages")
+            _debounce_tasks[conversation_id] = asyncio.create_task(
+                _debounced_ai_process(conversation_id, business, customer_phone)
+            )
+
     except Exception as e:
         print(f"Twilio inbound error: {e}")
     return Response(content=TWIML_EMPTY, media_type="application/xml")
