@@ -294,7 +294,7 @@ export default function DashboardScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={[s.drawerBizName, { color: colors.text }]} numberOfLines={1}>{bizName || 'My Business'}</Text>
                 <Text style={[s.drawerBizType, { color: colors.textSecondary }]} numberOfLines={1}>
-                  {bizType ? bizType.charAt(0).toUpperCase() + bizType.slice(1) : 'DispatchAI'}
+                  {bizType ? bizType.charAt(0).toUpperCase() + bizType.slice(1) : 'CueDesk'}
                 </Text>
               </View>
             </View>

@@ -131,7 +131,7 @@ export default function LoginScreen() {
           {/* Logo section */}
           <Animated.View style={[s.logoSection, { opacity: fadeAnim }]}>
             <DispatchLogo size={88} />
-            <Text style={s.brand}>DispatchAI</Text>
+            <Text style={s.brand}>CueDesk</Text>
             <Text style={s.tagline}>Your AI-powered business assistant</Text>
           </Animated.View>
 
