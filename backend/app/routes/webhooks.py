@@ -30,10 +30,8 @@ def normalize_phone(raw: str) -> str:
 
 
 def _human_delay(message_length: int) -> float:
-    """Return a realistic delay in seconds based on incoming message length."""
-    read_time = min(message_length * 0.05, 10)   # ~50ms per char, max 10s
-    type_time = random.uniform(15, 40)             # typing time
-    return read_time + type_time
+    """Return a short delay in seconds — fast enough to feel responsive."""
+    return random.uniform(3, 8)
 
 # ── Cancel / Reschedule intent ─────────────────────────────────────────────
 
@@ -344,7 +342,9 @@ async def _process_message(form_data: dict):
 
         # 6c. Build prompt and call Gemini
         print(f"[{conversation_id}] Calling Gemini with {len(messages)} messages in history...")
-        prompt = build_prompt(business=business, services=services, messages=messages)
+        booking_check = supabase_service.table("bookings").select("id").eq("conversation_id", conversation_id).limit(1).execute()
+        booking_confirmed = bool(booking_check.data)
+        prompt = build_prompt(business=business, services=services, messages=messages, booking_confirmed=booking_confirmed)
         ai_response, _ = await generate_response(prompt)
         print(f"[{conversation_id}] Gemini response ({len(ai_response)} chars): {ai_response[:80]}...")
 

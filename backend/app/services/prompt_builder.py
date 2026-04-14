@@ -47,7 +47,7 @@ def _turn4_instruction(service_location: str) -> str:
     )
 
 
-def build_prompt(business: dict, services: list[dict], messages: list[dict]) -> str:
+def build_prompt(business: dict, services: list[dict], messages: list[dict], booking_confirmed: bool = False) -> str:
     """
     Assembles 3-layer prompt:
       Layer 1 — Base agent template (industry knowledge, emergencies, communication style)
@@ -168,6 +168,13 @@ CONVERSATION SO FAR:
 {conversation_history}
 
 Reply to the customer's latest message. Under 160 characters, warm, casual, one question max."""
+
+    if booking_confirmed:
+        prompt += (
+            "\n\nNOTE: This customer's booking is ALREADY confirmed and saved. "
+            "Do NOT send another 'Booked!' confirmation message. "
+            "Just answer their question naturally and helpfully."
+        )
 
     if had_owner_takeover:
         prompt += (
