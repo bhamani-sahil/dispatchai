@@ -19,15 +19,27 @@ const STATUS_META = {
   cancelled: { label: "Cancelled", color: "#94A3B8", bg: "#F8FAFC" },
 };
 
-function getWeekDates() {
+function getWeekDates(offset = 0) {
   const now = new Date();
   const monday = new Date(now);
-  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7) + offset * 7);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     return d;
   });
+}
+
+function formatPhone(raw) {
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 11 && digits[0] === "1") {
+    return `+1 ${digits.slice(1,4)}-${digits.slice(4,7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`;
+  }
+  return raw;
 }
 
 // ── Date Picker ───────────────────────────────────────────────────────────────
@@ -249,8 +261,22 @@ function AddModal({ onClose, onSaved, prefillDate }) {
             <>
               <div>
                 <label className="text-xs font-semibold text-[#475569] tracking-wide mb-1.5 block">CUSTOMER PHONE</label>
-                <input type="tel" placeholder="+1 (555) 000-0000" value={form.customer_phone}
-                  onChange={e => setForm(p => ({ ...p, customer_phone: e.target.value }))}
+                <input type="tel" placeholder="+1 825-222-9874" value={form.customer_phone}
+                  onChange={e => {
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                    let formatted = digits;
+                    if (digits.length > 1 && digits[0] === "1") {
+                      const d = digits.slice(1);
+                      if (d.length <= 3) formatted = `+1 ${d}`;
+                      else if (d.length <= 6) formatted = `+1 ${d.slice(0,3)}-${d.slice(3)}`;
+                      else formatted = `+1 ${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`;
+                    } else if (digits.length >= 1) {
+                      if (digits.length <= 3) formatted = digits;
+                      else if (digits.length <= 6) formatted = `${digits.slice(0,3)}-${digits.slice(3)}`;
+                      else formatted = `${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`;
+                    }
+                    setForm(p => ({ ...p, customer_phone: formatted }));
+                  }}
                   className="w-full px-3 py-2.5 rounded-xl border border-black/[0.08] text-sm focus:outline-none focus:ring-2 focus:ring-[#4F6EF7]/30" />
               </div>
               <div>
@@ -471,6 +497,7 @@ export default function Schedule() {
   const [showAdd, setShowAdd] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [prefillDate, setPrefillDate] = useState("");
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const load = useCallback(() => {
     api.get("/api/calendar/bookings")
@@ -481,8 +508,13 @@ export default function Schedule() {
 
   useEffect(() => { load(); }, [load]);
 
-  const weekDates = getWeekDates();
+  const weekDates = getWeekDates(weekOffset);
   const today = new Date().toDateString();
+
+  const weekLabel = weekOffset === 0 ? "This Week"
+    : weekOffset === 1 ? "Next Week"
+    : weekOffset === -1 ? "Last Week"
+    : `${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${weekDates[6].toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 
   function bookingsForDate(date) {
     const iso = date.toISOString().slice(0, 10);
@@ -498,7 +530,21 @@ export default function Schedule() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[#0F172A]">This Week</h2>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setWeekOffset(o => o - 1)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-black/[0.08] hover:bg-black/[0.04] transition text-[#475569]">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <h2 className="text-sm font-semibold text-[#0F172A] min-w-[90px] text-center">{weekLabel}</h2>
+          <button onClick={() => setWeekOffset(o => o + 1)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-black/[0.08] hover:bg-black/[0.04] transition text-[#475569]">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          {weekOffset !== 0 && (
+            <button onClick={() => setWeekOffset(0)}
+              className="text-xs text-[#4F6EF7] hover:underline ml-1">Today</button>
+          )}
+        </div>
         <button onClick={() => openAdd(null)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-medium transition hover:opacity-90"
           style={{ background: PURPLE }}>
@@ -541,12 +587,15 @@ export default function Schedule() {
                     const meta = STATUS_META[b.status] || STATUS_META.booked;
                     return (
                       <button key={b.id} onClick={() => setSelectedBooking(b)}
-                        className="w-full mb-1.5 p-2 rounded-lg text-left text-[10px] leading-tight transition hover:opacity-80"
+                        className="w-full mb-1.5 p-1.5 rounded-lg text-left text-[10px] leading-tight transition hover:opacity-80 overflow-hidden"
                         style={{ background: meta.bg, border: `1px solid ${meta.color}20` }}>
-                        <p className="font-semibold" style={{ color: meta.color }}>{b.slot_time?.split("-")[0]}</p>
+                        <p className="font-bold truncate" style={{ color: meta.color }}>{b.slot_time?.slice(0,5)}</p>
                         <p className="text-[#475569] truncate mt-0.5">
-                          {b.status === "blocked" ? "Blocked" : b.customer_phone?.slice(-7)}
+                          {b.status === "blocked" ? "Blocked" : `···${b.customer_phone?.slice(-4)}`}
                         </p>
+                        {b.job_summary && b.job_summary !== "Blocked" && (
+                          <p className="text-[#94A3B8] truncate mt-0.5">{b.job_summary}</p>
+                        )}
                       </button>
                     );
                   })}
@@ -600,7 +649,7 @@ export default function Schedule() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-[#0F172A] truncate">
-                        {b.status === "blocked" ? "Blocked" : b.customer_phone}
+                        {b.status === "blocked" ? "Blocked" : formatPhone(b.customer_phone)}
                       </p>
                       {b.job_summary && b.job_summary !== "Blocked" && (
                         <p className="text-xs text-[#94A3B8] truncate">{b.job_summary}</p>
@@ -638,7 +687,7 @@ export default function Schedule() {
                   </div>
                   <div className="flex-1 min-w-0 space-y-0.5">
                     <p className="text-sm font-medium text-[#0F172A]">
-                      {b.status === "blocked" ? "Blocked Time" : b.customer_phone}
+                      {b.status === "blocked" ? "Blocked Time" : formatPhone(b.customer_phone)}
                     </p>
                     {b.customer_address && (
                       <div className="flex items-center gap-1 text-xs text-[#94A3B8]">
