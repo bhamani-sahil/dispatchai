@@ -40,59 +40,8 @@ export default function Footer() {
       {/* Footer links */}
       <div className="border-t border-black/[0.04] bg-[#F8F9FC]/50">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-            <div>
-              <h4 className="text-sm font-medium text-[#0F172A] mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                Product
-              </h4>
-              <ul className="flex flex-col gap-2.5">
-                {["Features", "Pricing", "Integrations", "Changelog"].map((l) => (
-                  <li key={l}>
-                    <a href="#" className="text-sm text-[#94A3B8] hover:text-[#475569] transition-colors">{l}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-[#0F172A] mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                Company
-              </h4>
-              <ul className="flex flex-col gap-2.5">
-                {["About", "Blog", "Careers", "Contact"].map((l) => (
-                  <li key={l}>
-                    <a href="#" className="text-sm text-[#94A3B8] hover:text-[#475569] transition-colors">{l}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-[#0F172A] mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                Resources
-              </h4>
-              <ul className="flex flex-col gap-2.5">
-                {["Documentation", "Help Center", "API Reference", "Status"].map((l) => (
-                  <li key={l}>
-                    <a href="#" className="text-sm text-[#94A3B8] hover:text-[#475569] transition-colors">{l}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-[#0F172A] mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                Legal
-              </h4>
-              <ul className="flex flex-col gap-2.5">
-                {["Privacy", "Terms", "Security", "Cookies"].map((l) => (
-                  <li key={l}>
-                    <a href="#" className="text-sm text-[#94A3B8] hover:text-[#475569] transition-colors">{l}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
           {/* Bottom bar */}
-          <div className="border-t border-black/[0.04] pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             {/* Logo */}
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 relative flex items-center justify-center">
@@ -111,11 +60,17 @@ export default function Footer() {
             </div>
 
             <p className="text-xs text-[#94A3B8] text-center">
-              Built for trades, home services, and local businesses.
+              Questions?{" "}
+              <a href="mailto:info@cuedesk.ca" className="text-[#4F6EF7] hover:underline">
+                info@cuedesk.ca
+              </a>
             </p>
 
-            <p className="text-xs text-[#94A3B8]">
+            <p className="text-xs text-[#94A3B8] flex items-center gap-1.5">
               &copy; {new Date().getFullYear()} CueDesk. All rights reserved.
+              <span className="inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full bg-red-50 text-red-500 font-medium">
+                🍁 Made in Canada
+              </span>
             </p>
           </div>
         </div>

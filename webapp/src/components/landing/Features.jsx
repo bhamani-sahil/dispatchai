@@ -1,41 +1,47 @@
 import { motion } from "framer-motion";
-import { Brain, CalendarCheck, MessageSquareText, DollarSign, FileText, Handshake } from "lucide-react";
+import { Brain, CalendarCheck, MessageSquareText, DollarSign, FileText, Handshake, Check } from "lucide-react";
 
 const features = [
   {
     icon: Brain,
     title: "Business Intelligence",
-    description: "Knows your services, pricing, hours, and area. Answers customer questions like a trained employee.",
+    description: "Knows your services, pricing, hours, and service area. Answers customer questions like a trained employee — without you lifting a finger.",
+    bullets: ["Trained on your business info", "Handles FAQs automatically", "Updates instantly when you edit settings"],
     span: "md:col-span-4 lg:col-span-8",
   },
   {
     icon: CalendarCheck,
     title: "Smart Booking",
     description: "Schedules appointments directly into your calendar with a full job summary attached.",
+    bullets: ["Checks your availability in real time", "Sends booking confirmation to customer", "Summary attached to every job"],
     span: "md:col-span-4 lg:col-span-4",
   },
   {
     icon: MessageSquareText,
     title: "Natural Conversations",
-    description: "Talks like a real person over SMS. Customers never know it's AI.",
+    description: "Talks like a real person over SMS. Customers never know it's AI — and most don't care once they're booked.",
+    bullets: ["Responds in under 8 seconds", "Handles multi-message threads", "Remembers context in the conversation"],
     span: "md:col-span-4 lg:col-span-4",
   },
   {
     icon: DollarSign,
     title: "Instant Quoting",
-    description: "Gives accurate price ranges on the spot. No more back-and-forth.",
+    description: "Gives accurate price ranges on the spot based on your real service pricing. No more back-and-forth.",
+    bullets: ["Uses your configured service rates", "Handles follow-up questions", "Moves customer toward booking"],
     span: "md:col-span-4 lg:col-span-4",
   },
   {
     icon: FileText,
     title: "Quotes & Invoices",
-    description: "Generate professional quotes and invoices directly from the dashboard.",
+    description: "Generate professional quotes and invoices from the dashboard in seconds. Send a PDF link directly to the customer.",
+    bullets: ["Branded PDF documents", "Ask the AI to generate from chat", "Downloadable link sent instantly"],
     span: "md:col-span-4 lg:col-span-4",
   },
   {
     icon: Handshake,
     title: "Human Handoff",
-    description: "Owner can jump into any conversation at any time and take over seamlessly.",
+    description: "Jump into any conversation at any time. Take over from the AI, reply manually, then hand it back — all without the customer noticing a thing.",
+    bullets: ["One-tap takeover from dashboard", "Full conversation history visible", "Hand back to AI when you're done"],
     span: "md:col-span-8 lg:col-span-8",
   },
 ];
@@ -115,9 +121,19 @@ export default function Features() {
                   >
                     {feature.title}
                   </h3>
-                  <p className="text-sm leading-relaxed text-[#475569]">
+                  <p className="text-sm leading-relaxed text-[#475569] mb-4">
                     {feature.description}
                   </p>
+                  {feature.bullets && (
+                    <ul className="flex flex-col gap-1.5">
+                      {feature.bullets.map(b => (
+                        <li key={b} className="flex items-center gap-2 text-xs text-[#64748B]">
+                          <Check className="w-3 h-3 text-[#4F6EF7] shrink-0" strokeWidth={2.5} />
+                          {b}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </motion.div>
             );

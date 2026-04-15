@@ -4,33 +4,18 @@ import { Button } from "../ui/button";
 
 const plans = [
   {
-    name: "Starter",
-    price: "$49",
-    period: "/mo",
-    description: "For solo operators getting started",
-    features: [
-      "Up to 100 conversations/mo",
-      "Smart booking & scheduling",
-      "Basic quoting",
-      "Email support",
-      "1 phone number",
-    ],
-    highlight: false,
-    cta: "Start Free Trial",
-  },
-  {
     name: "Pro",
     price: "$99",
     period: "/mo",
-    description: "For growing businesses that need more",
+    description: "Everything you need to never miss a job again",
     features: [
-      "Unlimited conversations",
+      "Unlimited AI conversations",
       "Smart booking & scheduling",
       "Instant quoting & invoices",
+      "Human handoff anytime",
+      "Custom AI instructions",
       "Priority support",
-      "3 phone numbers",
-      "Human handoff",
-      "Custom AI training",
+      "1 Twilio phone number included",
     ],
     highlight: true,
     cta: "Start Free Trial",
@@ -40,11 +25,12 @@ const plans = [
     name: "Enterprise",
     price: "Custom",
     period: "",
-    description: "For teams and multi-location businesses",
+    description: "For teams, franchises, and multi-location businesses",
     features: [
       "Everything in Pro",
       "Unlimited phone numbers",
-      "API access",
+      "Multiple technician accounts",
+      "API access & webhooks",
       "Dedicated account manager",
       "Custom integrations",
       "SLA guarantee",
@@ -103,7 +89,7 @@ export default function Pricing({ onSignup }) {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-60px" }}
-          className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto"
+          className="grid md:grid-cols-2 gap-5 max-w-3xl mx-auto"
         >
           {plans.map((plan) => (
             <motion.div
