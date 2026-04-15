@@ -1,0 +1,158 @@
+/* Gradient text utility */
+.gradient-text {
+  background: linear-gradient(to bottom, #0F172A 0%, #334155 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-accent {
+  background: linear-gradient(135deg, #4F6EF7 0%, #9775FA 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Button glow on hover */
+.btn-glow:hover {
+  box-shadow: 0 0 24px rgba(79, 110, 247, 0.3), 0 0 48px rgba(79, 110, 247, 0.1);
+}
+
+/* Gradient border */
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(135deg, #4F6EF7 0%, #9775FA 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Animated gradient border for pricing */
+@keyframes borderRotate {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient-border::before {
+  background: linear-gradient(270deg, #4F6EF7, #9775FA, #4F6EF7, #9775FA);
+  background-size: 300% 300%;
+  animation: borderRotate 4s ease infinite;
+}
+
+/* Phone mockup styling - white phone on light page */
+.phone-mockup {
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 2rem;
+  box-shadow: 
+    0 25px 60px -12px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0,0,0,0.03),
+    0 0 80px rgba(79, 110, 247, 0.06);
+}
+
+/* Chat bubble styles */
+.chat-bubble-incoming {
+  background: #F1F0FB;
+  border: 1px solid rgba(151, 117, 250, 0.12);
+  border-radius: 1rem 1rem 1rem 0.25rem;
+}
+
+.chat-bubble-outgoing {
+  background: linear-gradient(135deg, #4F6EF7 0%, #6C5CE7 100%);
+  border-radius: 1rem 1rem 0.25rem 1rem;
+}
+
+/* Feature card hover glow */
+.feature-card {
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.feature-card:hover {
+  border-color: rgba(151, 117, 250, 0.2);
+  box-shadow: 0 0 0 1px rgba(151, 117, 250, 0.08), 0 8px 40px rgba(79, 110, 247, 0.08), 0 2px 8px rgba(0,0,0,0.03);
+  transform: translateY(-3px);
+}
+
+/* Typing indicator */
+@keyframes typingDot {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+.typing-dot {
+  animation: typingDot 1.4s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Stats counter glow */
+.stat-glow {
+  color: #0F172A;
+}
+
+/* Step connector line */
+.step-connector {
+  background: linear-gradient(to right, #4F6EF7, #9775FA);
+  height: 1px;
+  opacity: 0.2;
+}
+
+/* Glass card for light theme */
+.glass-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.03);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(151, 117, 250, 0.2);
+  box-shadow: 0 0 0 1px rgba(151, 117, 250, 0.06), 0 8px 40px rgba(79, 110, 247, 0.08), 0 4px 16px rgba(0, 0, 0, 0.03);
+  transform: translateY(-3px);
+}
+
+/* Ambient glow orbs */
+.ambient-glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.ambient-glow-purple {
+  background: radial-gradient(circle, rgba(151, 117, 250, 0.12), rgba(79, 110, 247, 0.05), transparent 70%);
+  filter: blur(80px);
+}
+
+.ambient-glow-blue {
+  background: radial-gradient(circle, rgba(79, 110, 247, 0.1), rgba(151, 117, 250, 0.04), transparent 70%);
+  filter: blur(80px);
+}
