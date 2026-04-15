@@ -80,7 +80,8 @@ async def update_business(body: BusinessPatch, user=Depends(get_current_user)):
     if body.emergency_fee is not None:      patch["emergency_fee"] = float(body.emergency_fee)
     if body.hours_text is not None:         patch["hours_text"] = body.hours_text
     if body.service_location is not None:   patch["service_location"] = body.service_location
-    if body.etransfer_email is not None:    patch["etransfer_email"] = body.etransfer_email
+    if body.etransfer_email is not None:         patch["etransfer_email"] = body.etransfer_email
+    if body.max_bookings_per_slot is not None:   patch["max_bookings_per_slot"] = body.max_bookings_per_slot
     # custom_instructions can be set to null explicitly, so always include it when present in body
     if "custom_instructions" in (body.model_fields_set or set()):
         patch["custom_instructions"] = body.custom_instructions

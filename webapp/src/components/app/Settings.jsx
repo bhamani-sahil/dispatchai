@@ -65,7 +65,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
 
   // Profile state
-  const [profile, setProfile] = useState({ name: "", phone: "", service_area: "", agent_name: "" });
+  const [profile, setProfile] = useState({ name: "", phone: "", service_area: "", agent_name: "", max_bookings_per_slot: 1 });
   const [savingProfile, setSavingProfile] = useState(false);
   const [savedProfile, setSavedProfile] = useState(false);
 
@@ -100,6 +100,7 @@ export default function Settings() {
           phone: biz.phone || "",
           service_area: biz.service_area || "",
           agent_name: biz.agent_name || "Anna",
+          max_bookings_per_slot: biz.max_bookings_per_slot || 1,
         });
         setAgentActive(biz.agent_active ?? true);
         setInstructions(biz.custom_instructions || "");
@@ -122,6 +123,7 @@ export default function Settings() {
         phone: profile.phone,
         service_area: profile.service_area,
         agent_name: profile.agent_name,
+        max_bookings_per_slot: profile.max_bookings_per_slot,
       });
       setSavedProfile(true);
       setTimeout(() => setSavedProfile(false), 2000);
@@ -271,6 +273,20 @@ export default function Settings() {
                 placeholder="Anna"
                 className="w-full px-4 py-2.5 rounded-xl border border-black/[0.08] text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#4F6EF7]/30 transition"
               />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-[#475569] tracking-wide mb-1.5 block">NUMBER OF TECHS</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={profile.max_bookings_per_slot}
+                  onChange={e => setProfile(p => ({ ...p, max_bookings_per_slot: Math.max(1, parseInt(e.target.value) || 1) }))}
+                  className="w-24 px-4 py-2.5 rounded-xl border border-black/[0.08] text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#4F6EF7]/30 transition"
+                />
+                <p className="text-xs text-[#94A3B8]">techs available per time slot</p>
+              </div>
             </div>
           </div>
           <div className="flex justify-end pt-1">

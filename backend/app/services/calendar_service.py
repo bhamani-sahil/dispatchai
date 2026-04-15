@@ -85,11 +85,10 @@ def _normalize_to_template_slot(slot_time: str, slot_date: str) -> str:
     return slot_time
 
 
-def _get_booked_keys(business_id: str = None) -> tuple[set[tuple], set[str]]:
+def _get_booking_counts(business_id: str = None) -> tuple[dict[tuple, int], set[str]]:
     """
-    Fetch taken (date_raw, time) pairs and all-day blocked dates from Supabase.
-    Returns (specific_keys, all_day_dates) where all_day_dates is a set of date strings
-    that are fully blocked.
+    Fetch booking counts per (date, time) slot and all-day blocked dates.
+    Returns (counts dict, all_day_dates set).
     """
     today = date.today()
     start = (today + timedelta(days=1)).isoformat()
@@ -100,25 +99,36 @@ def _get_booked_keys(business_id: str = None) -> tuple[set[tuple], set[str]]:
         q = q.eq("business_id", business_id)
     result = q.execute()
 
-    specific_keys: set[tuple] = set()
+    counts: dict[tuple, int] = {}
     all_day_dates: set[str] = set()
     for b in (result.data or []):
         if b["slot_time"] == "all-day":
             all_day_dates.add(b["slot_date"])
         else:
-            # Normalize hour-based times from manual bookings to template range format
             normalized = _normalize_to_template_slot(b["slot_time"], b["slot_date"])
-            specific_keys.add((b["slot_date"], normalized))
-    return specific_keys, all_day_dates
+            key = (b["slot_date"], normalized)
+            counts[key] = counts.get(key, 0) + 1
+    return counts, all_day_dates
+
+
+def _get_max_capacity(business_id: str = None) -> int:
+    """Fetch max_bookings_per_slot for this business. Defaults to 1."""
+    if not business_id:
+        return 1
+    result = supabase_service.table("businesses").select("max_bookings_per_slot").eq("id", business_id).execute()
+    if result.data:
+        return result.data[0].get("max_bookings_per_slot") or 1
+    return 1
 
 
 def get_available_slots(business_id: str = None, business_hours: dict = None) -> list[dict]:
-    """Return all unbooked slots for the next 7 days."""
-    specific_keys, all_day_dates = _get_booked_keys(business_id)
+    """Return all slots with remaining capacity for the next 7 days."""
+    counts, all_day_dates = _get_booking_counts(business_id)
+    max_cap = _get_max_capacity(business_id)
     return [
         s for s in _generate_template(business_hours=business_hours)
         if s["date_raw"] not in all_day_dates
-        and (s["date_raw"], s["time"]) not in specific_keys
+        and counts.get((s["date_raw"], s["time"]), 0) < max_cap
     ]
 
 
@@ -175,15 +185,21 @@ def book_slot(
 
     date_raw, time = slot_id.split("|", 1)
 
-    # Check it's not already booked or blocked (including all-day blocks)
+    # Check capacity — count existing bookings for this slot vs max allowed
     existing = supabase_service.table("bookings").select("id,slot_time").eq(
         "slot_date", date_raw).in_("status", ["booked", "completed", "blocked"])
     if business_id:
         existing = existing.eq("business_id", business_id)
     existing_rows = existing.execute().data or []
+    slot_count = 0
     for row in existing_rows:
-        if row["slot_time"] == time or row["slot_time"] == "all-day":
-            return None  # Slot taken or day is fully blocked
+        if row["slot_time"] == "all-day":
+            return None  # Day is fully blocked
+        if row["slot_time"] == time:
+            slot_count += 1
+    max_cap = _get_max_capacity(business_id)
+    if slot_count >= max_cap:
+        return None  # Slot at capacity
 
     # Figure out period
     period = "morning" if any(t in time for t in ["8:00", "9:00", "10:00", "11:00"]) else "afternoon"

@@ -57,6 +57,7 @@ class BusinessPatch(BaseModel):
     hours_text: Optional[str] = None
     service_location: Optional[str] = None  # "onsite" | "mobile" | "both"
     etransfer_email: Optional[str] = None
+    max_bookings_per_slot: Optional[int] = None
 
 
 class BusinessResponse(BaseModel):
@@ -78,6 +79,7 @@ class BusinessResponse(BaseModel):
     agent_active: bool = True
     service_location: Optional[str] = "both"
     etransfer_email: Optional[str] = None
+    max_bookings_per_slot: Optional[int] = 1
     created_at: datetime
     updated_at: datetime
 
