@@ -5,8 +5,8 @@ import { Button } from "../ui/button";
 const plans = [
   {
     name: "Pro",
-    price: "$99",
-    period: "/mo",
+    price: "Free",
+    period: "",
     description: "Everything you need to never miss a job again",
     features: [
       "Unlimited AI conversations",
@@ -19,7 +19,8 @@ const plans = [
     ],
     highlight: true,
     cta: "Join Beta — Free",
-    badge: "Beta",
+    badge: "Early Access",
+    originalPrice: "$99",
   },
   {
     name: "Pro+",
@@ -122,6 +123,11 @@ export default function Pricing({ onSignup }) {
               </div>
 
               <div className="mb-6">
+                {plan.originalPrice && (
+                  <span className="text-base text-[#94A3B8] line-through mr-2">
+                    {plan.originalPrice}/mo
+                  </span>
+                )}
                 <span
                   className="text-4xl font-medium text-[#0F172A]"
                   style={{ fontFamily: "'Outfit', sans-serif" }}
