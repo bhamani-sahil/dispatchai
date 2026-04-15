@@ -68,6 +68,7 @@ async def update_business(body: BusinessPatch, user=Depends(get_current_user)):
     # Only include fields that were explicitly provided
     patch: dict = {}
     if body.name is not None:               patch["name"] = body.name
+    if body.agent_name is not None:         patch["agent_name"] = body.agent_name
     if body.agent_type is not None:         patch["agent_type"] = body.agent_type
     if body.phone is not None:              patch["phone"] = body.phone
     if body.twilio_phone is not None:       patch["twilio_phone"] = body.twilio_phone

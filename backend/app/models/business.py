@@ -43,6 +43,7 @@ class BusinessCreate(BaseModel):
 class BusinessPatch(BaseModel):
     """Partial update — only fields present in the request body are written."""
     name: Optional[str] = None
+    agent_name: Optional[str] = None
     agent_type: Optional[str] = None
     phone: Optional[str] = None
     twilio_phone: Optional[str] = None
