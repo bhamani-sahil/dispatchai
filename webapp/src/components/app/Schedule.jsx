@@ -516,13 +516,20 @@ export default function Schedule() {
     : weekOffset === -1 ? "Last Week"
     : `${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${weekDates[6].toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 
+  function localISO(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
   function bookingsForDate(date) {
-    const iso = date.toISOString().slice(0, 10);
+    const iso = localISO(date);
     return bookings.filter(b => b.slot_date === iso && b.status !== "cancelled");
   }
 
   function openAdd(date) {
-    setPrefillDate(date ? date.toISOString().slice(0, 10) : "");
+    setPrefillDate(date ? localISO(date) : "");
     setShowAdd(true);
   }
 

@@ -94,37 +94,49 @@ def score_confidence(customer_message: str, ai_response: str, services: list[dic
 
 async def generate_json(prompt: str) -> str:
     """Call Gemini expecting a full JSON response — no SMS truncation."""
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-        text = response.text.strip()
-        _track(prompt, text, "response")
-        return text
-    except Exception as e:
-        _usage["errors"] += 1
-        print(f"Gemini JSON error: {e}")
-        return ""
+    last_err = None
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+            )
+            text = response.text.strip()
+            _track(prompt, text, "response")
+            return text
+        except Exception as e:
+            last_err = e
+            _usage["errors"] += 1
+            print(f"Gemini JSON error (attempt {attempt + 1}/3): {e}")
+            if attempt < 2:
+                await asyncio.sleep(2 ** attempt)
+    print(f"Gemini JSON failed after 3 attempts: {last_err}")
+    return ""
 
 
 async def generate_response(prompt: str) -> tuple[str, float]:
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-        text = response.text.strip()
-        if len(text) > 155:
-            cut = text[:155]
-            last_period = max(cut.rfind('.'), cut.rfind('!'), cut.rfind('?'))
-            text = cut[:last_period + 1] if last_period > 80 else cut
-        _track(prompt, text, "response")
-        return text, 0.85
-    except Exception as e:
-        _usage["errors"] += 1
-        print(f"Gemini error: {e}")
-        return "Thank you for reaching out! We'll have someone contact you shortly.", 0.0
+    last_err = None
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+            )
+            text = response.text.strip()
+            if len(text) > 155:
+                cut = text[:155]
+                last_period = max(cut.rfind('.'), cut.rfind('!'), cut.rfind('?'))
+                text = cut[:last_period + 1] if last_period > 80 else cut
+            _track(prompt, text, "response")
+            return text, 0.85
+        except Exception as e:
+            last_err = e
+            _usage["errors"] += 1
+            print(f"Gemini error (attempt {attempt + 1}/3): {e}")
+            if attempt < 2:
+                await asyncio.sleep(2 ** attempt)  # 1s, 2s
+    print(f"Gemini failed after 3 attempts: {last_err}")
+    return "Thank you for reaching out! We'll have someone contact you shortly.", 0.0
 
 
 async def summarize_booking(messages: list[dict]) -> str:
