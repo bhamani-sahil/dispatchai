@@ -18,7 +18,7 @@ const plans = [
       "1 free phone number included",
     ],
     highlight: true,
-    cta: "Join Beta — Free",
+    cta: "Get Early Access — Free",
     badge: "Early Access",
     originalPrice: "$99",
   },

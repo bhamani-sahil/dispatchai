@@ -219,20 +219,38 @@ async def _detect_and_book(ai_text: str, messages: list[dict], customer_phone: s
                                     "all set for thursday", "all set for friday", "all set for saturday",
                                     "you're all set", "you are all set", "confirmed for"]):
         return
-    for day in DAYS:
-        if day not in text:
-            continue
-        day_slots = [s for s in get_available_slots(business_id, business_hours=business_hours) if s["date_short"].lower() == day]
-        if not day_slots:
-            continue
-        chosen = _best_slot_match(day_slots, text)
-        notes = await summarize_booking(messages)
-        address = customer_address or _extract_address(messages)
-        print(f"[{conversation_id}] Address extracted: '{address}' | Phone: '{customer_phone}'")
-        booked = book_slot(chosen["id"], customer_phone, address, notes, business_id, conversation_id)
-        if booked:
-            print(f"[{conversation_id}] Booked → Supabase: {chosen['date']} {chosen['time']} — {notes[:60]}")
+    # Step 1: extract day from direct confirmation phrases (most reliable)
+    best_day = None
+    direct_m = re.search(
+        r"(?:see you|booked(?: you)? for|all set for|confirmed for)\s+(monday|tuesday|wednesday|thursday|friday|saturday)",
+        text,
+    )
+    if direct_m:
+        best_day = direct_m.group(1)
+
+    # Step 2: fall back to whichever day appears LAST in the text
+    # (avoids grabbing an earlier-mentioned day like "sorry, monday is full")
+    if not best_day:
+        best_pos = -1
+        for day in DAYS:
+            pos = text.rfind(day)
+            if pos > best_pos:
+                best_pos = pos
+                best_day = day
+
+    if not best_day:
         return
+
+    day_slots = [s for s in get_available_slots(business_id, business_hours=business_hours) if s["date_short"].lower() == best_day]
+    if not day_slots:
+        return
+    chosen = _best_slot_match(day_slots, text)
+    notes = await summarize_booking(messages)
+    address = customer_address or _extract_address(messages)
+    print(f"[{conversation_id}] Address extracted: '{address}' | Phone: '{customer_phone}'")
+    booked = book_slot(chosen["id"], customer_phone, address, notes, business_id, conversation_id)
+    if booked:
+        print(f"[{conversation_id}] Booked → Supabase: {chosen['date']} {chosen['time']} — {notes[:60]}")
 
 
 async def _save_incoming(form_data: dict) -> tuple[str | None, dict | None, str | None]:
