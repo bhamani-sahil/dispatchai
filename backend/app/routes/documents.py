@@ -126,12 +126,12 @@ async def send_document(doc_id: str, body: SendDocumentRequest, user=Depends(get
         raise HTTPException(status_code=400, detail="Document has no PDF URL yet")
 
     if body.method == "sms":
-        from app.services.telnyx_service import send_sms
+        from app.services.twilio_service import send_sms
         msg = (
             f"Hi! Here's your {doc['doc_type']} {doc['doc_number']} from {business['name']}. "
             f"Total: ${doc['total']:.2f}. View/download: {doc['pdf_url']}"
         )
-        await send_sms(to=body.to, body=msg)
+        send_sms(to=body.to, body=msg)
     else:
         raise HTTPException(status_code=400, detail="Only 'sms' method is supported right now")
 

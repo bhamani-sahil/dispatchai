@@ -4,6 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from datetime import date, datetime, timedelta
 from app.utils.supabase_client import supabase_anon, supabase_service
+from app.utils.tz import business_today, business_tz
 
 router = APIRouter()
 security = HTTPBearer()
@@ -26,8 +27,8 @@ async def get_user_business(user_id: str) -> dict:
     return result.data[0]
 
 
-def _period_range(period: str) -> tuple[str, str]:
-    today = date.today()
+def _period_range(period: str, tz: str = None) -> tuple[str, str]:
+    today = business_today(tz)
     if period == "today":
         return today.isoformat(), today.isoformat()
     elif period == "this_week":
@@ -47,7 +48,8 @@ async def dashboard(
 ):
     business = await get_user_business(user.id)
     business_id = business["id"]
-    start_date, end_date = _period_range(period)
+    tz = business_tz(business)
+    start_date, end_date = _period_range(period, tz=tz)
 
     # --- Conversations ---
     all_convs = supabase_service.table("conversations").select(
@@ -104,7 +106,7 @@ async def dashboard(
     time_saved_hours = round(ai_msg_count * 2 / 60, 1)
 
     # --- Upcoming jobs (next 5) ---
-    today_str = date.today().isoformat()
+    today_str = business_today(tz).isoformat()
     upcoming_jobs = [
         b for b in sorted(bookings, key=lambda x: (x["slot_date"], x["slot_time"] or ""))
         if b["slot_date"] >= today_str
@@ -185,7 +187,11 @@ async def get_all_slots_auth(user=Depends(get_current_user)):
     """All slots (booked + available) for the next 7 days — authenticated."""
     business = await get_user_business(user.id)
     from app.services.calendar_service import get_all_slots
-    return get_all_slots(business["id"])
+    return get_all_slots(
+        business["id"],
+        business_hours=business.get("business_hours") or None,
+        tz=business_tz(business),
+    )
 
 
 @router.post("/api/calendar/book", status_code=201)
@@ -265,14 +271,14 @@ async def forward_to_tech(body: ForwardTechRequest, user=Depends(get_current_use
         f"- {business['name']}"
     )
 
-    from app.services.telnyx_service import send_sms
+    from app.services.twilio_service import send_sms
     to = body.tech_phone
     if not to.startswith("+"):
         to = "+1" + re.sub(r"\D", "", to)[-10:]
 
     sms_ok = True
     try:
-        await send_sms(to=to, body=msg)
+        send_sms(to=to, body=msg)
     except Exception as e:
         print(f"[forward-tech] SMS failed (continuing): {e}")
         sms_ok = False

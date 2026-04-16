@@ -7,6 +7,7 @@ from app.services.agent import generate_response, summarize_booking, score_confi
 from app.services.prompt_builder import build_prompt
 from app.services.twilio_service import send_sms
 from app.services.calendar_service import get_available_slots, book_slot, find_and_book
+from app.utils.tz import business_today, business_tz
 
 DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
 
@@ -58,12 +59,12 @@ def _detect_manage_intent(message: str) -> str:
     return "normal"
 
 
-def _find_active_booking(customer_phone: str, business_id: str) -> dict | None:
+def _find_active_booking(customer_phone: str, business_id: str, tz: str = None) -> dict | None:
     result = supabase_service.table("bookings").select("*").eq(
         "customer_phone", customer_phone
     ).eq("business_id", business_id).in_(
         "status", ["booked", "assigned"]
-    ).gte("slot_date", date.today().isoformat()).order("slot_date").limit(1).execute()
+    ).gte("slot_date", business_today(tz).isoformat()).order("slot_date").limit(1).execute()
     return result.data[0] if result.data else None
 
 
@@ -71,21 +72,21 @@ def _cancel_booking_by_id(booking_id: str):
     supabase_service.table("bookings").update({"status": "cancelled"}).eq("id", booking_id).execute()
 
 
-def _parse_day_time(message: str) -> tuple[str, str]:
+def _parse_day_time(message: str, tz: str = None) -> tuple[str, str]:
     msg = message.lower()
     day = next((d for d in DAYS if d in msg), "")
     if not day:
         if "tomorrow" in msg:
-            day = (date.today() + timedelta(days=1)).strftime("%A").lower()
+            day = (business_today(tz) + timedelta(days=1)).strftime("%A").lower()
         elif "today" in msg:
-            day = date.today().strftime("%A").lower()
+            day = business_today(tz).strftime("%A").lower()
     time_m = re.search(r"\b(\d{1,2}(?::\d{2})?)\s*(am|pm)\b", msg)
     time_hint = f"{time_m.group(1)}{time_m.group(2)}" if time_m else ""
     return day, time_hint
 
 
-async def _handle_cancel(customer_phone: str, business_id: str, conversation_id: str) -> str:
-    booking = _find_active_booking(customer_phone, business_id)
+async def _handle_cancel(customer_phone: str, business_id: str, conversation_id: str, tz: str = None) -> str:
+    booking = _find_active_booking(customer_phone, business_id, tz=tz)
     if not booking:
         return "I don't see any upcoming appointments under your number. Did you book under a different number? 🤔"
     _cancel_booking_by_id(booking["id"])
@@ -96,17 +97,17 @@ async def _handle_cancel(customer_phone: str, business_id: str, conversation_id:
 
 
 async def _handle_reschedule(
-    message: str, customer_phone: str, business_id: str, conversation_id: str, business_hours: dict = None
+    message: str, customer_phone: str, business_id: str, conversation_id: str, business_hours: dict = None, tz: str = None
 ) -> str | None:
     """
     Returns a reply string if we handled it directly (no Gemini needed).
     Returns None if Gemini should handle it (slot unavailable / ambiguous).
     """
-    booking = _find_active_booking(customer_phone, business_id)
+    booking = _find_active_booking(customer_phone, business_id, tz=tz)
     if not booking:
         return None  # Let Gemini handle — no booking found context
 
-    day_hint, time_hint = _parse_day_time(message)
+    day_hint, time_hint = _parse_day_time(message, tz=tz)
     if not day_hint:
         return None  # No day mentioned — let Gemini sort it out
 
@@ -117,6 +118,7 @@ async def _handle_reschedule(
         booking.get("job_summary", ""),
         business_id,
         business_hours=business_hours,
+        tz=tz,
     )
 
     if new_slot:
@@ -204,7 +206,7 @@ def _extract_address(messages: list[dict]) -> str:
     return ""
 
 
-async def _detect_and_book(ai_text: str, messages: list[dict], customer_phone: str, conversation_id: str, business_id: str = None, customer_address: str = "", business_hours: dict = None):
+async def _detect_and_book(ai_text: str, messages: list[dict], customer_phone: str, conversation_id: str, business_id: str = None, customer_address: str = "", business_hours: dict = None, tz: str = None):
     """Detect booking confirmation in AI response and persist to Supabase."""
     # Check Supabase directly — restart-safe, no in-memory state needed
     already = supabase_service.table("bookings").select("id").eq(
@@ -241,7 +243,7 @@ async def _detect_and_book(ai_text: str, messages: list[dict], customer_phone: s
     if not best_day:
         return
 
-    day_slots = [s for s in get_available_slots(business_id, business_hours=business_hours) if s["date_short"].lower() == best_day]
+    day_slots = [s for s in get_available_slots(business_id, business_hours=business_hours, tz=tz) if s["date_short"].lower() == best_day]
     if not day_slots:
         return
     chosen = _best_slot_match(day_slots, text)
@@ -356,13 +358,14 @@ async def _ai_process(conversation_id: str, business: dict, customer_phone: str)
         )
 
         business_hours = business.get("business_hours") or None
-        print(f"[{conversation_id}] business_hours = {business_hours}")
+        tz = business_tz(business)
+        print(f"[{conversation_id}] business_hours = {business_hours} tz = {tz}")
 
         manage_intent = _detect_manage_intent(latest_body)
 
         if manage_intent == "cancel":
             print(f"[{conversation_id}] Cancel intent detected")
-            reply = await _handle_cancel(customer_phone, business_id, conversation_id)
+            reply = await _handle_cancel(customer_phone, business_id, conversation_id, tz=tz)
             supabase_service.table("messages").insert({
                 "conversation_id": conversation_id, "sender_type": "ai_agent",
                 "body": reply, "ai_confidence": 1.0,
@@ -374,7 +377,7 @@ async def _ai_process(conversation_id: str, business: dict, customer_phone: str)
 
         if manage_intent == "reschedule":
             print(f"[{conversation_id}] Reschedule intent detected")
-            reply = await _handle_reschedule(latest_body, customer_phone, business_id, conversation_id, business_hours=business_hours)
+            reply = await _handle_reschedule(latest_body, customer_phone, business_id, conversation_id, business_hours=business_hours, tz=tz)
             if reply:
                 supabase_service.table("messages").insert({
                     "conversation_id": conversation_id, "sender_type": "ai_agent",
@@ -418,7 +421,7 @@ async def _ai_process(conversation_id: str, business: dict, customer_phone: str)
         await loop.run_in_executor(None, lambda: send_sms(to=customer_phone, body=ai_response))
         print(f"[{conversation_id}] SMS sent!")
 
-        await _detect_and_book(ai_response, messages, customer_phone, conversation_id, business_id, business_hours=business_hours)
+        await _detect_and_book(ai_response, messages, customer_phone, conversation_id, business_id, business_hours=business_hours, tz=tz)
 
     except Exception as e:
         print(f"[ai_process] error: {e}")

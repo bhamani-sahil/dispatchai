@@ -10,3 +10,4 @@ google-genai==1.10.0
 reportlab==4.2.5
 pillow==12.1.1
 httpx>=0.28.1
+tzdata>=2024.1

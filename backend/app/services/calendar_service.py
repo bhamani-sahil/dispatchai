@@ -7,6 +7,7 @@ Bookings are persisted to Supabase so they survive restarts.
 from datetime import date, timedelta
 from typing import Optional
 from app.utils.supabase_client import supabase_service
+from app.utils.tz import business_today
 
 WEEKDAY_SLOTS = [
     {"time": "8:00-10:00am",   "period": "morning"},
@@ -28,13 +29,13 @@ def _slot_id(date_raw: str, time: str) -> str:
 _DAY_NAMES = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
 
-def _generate_template(days_ahead: int = 7, business_hours: dict = None) -> list[dict]:
+def _generate_template(days_ahead: int = 7, business_hours: dict = None, tz: str = None) -> list[dict]:
     """Generate the next N days of slot templates (no booking state).
 
     If business_hours is provided (dict keyed by lowercase day name), only
     generate slots for days that are open. Sunday is always skipped.
     """
-    today = date.today()
+    today = business_today(tz)
     print(f"[calendar] _generate_template called, business_hours keys = {list(business_hours.keys()) if business_hours else None}")
     slots = []
     for i in range(1, days_ahead + 1):
@@ -85,12 +86,12 @@ def _normalize_to_template_slot(slot_time: str, slot_date: str) -> str:
     return slot_time
 
 
-def _get_booking_counts(business_id: str = None) -> tuple[dict[tuple, int], set[str]]:
+def _get_booking_counts(business_id: str = None, tz: str = None) -> tuple[dict[tuple, int], set[str]]:
     """
     Fetch booking counts per (date, time) slot and all-day blocked dates.
     Returns (counts dict, all_day_dates set).
     """
-    today = date.today()
+    today = business_today(tz)
     start = (today + timedelta(days=1)).isoformat()
     end = (today + timedelta(days=7)).isoformat()
     q = supabase_service.table("bookings").select("slot_date,slot_time,status").gte(
@@ -121,20 +122,20 @@ def _get_max_capacity(business_id: str = None) -> int:
     return 1
 
 
-def get_available_slots(business_id: str = None, business_hours: dict = None) -> list[dict]:
+def get_available_slots(business_id: str = None, business_hours: dict = None, tz: str = None) -> list[dict]:
     """Return all slots with remaining capacity for the next 7 days."""
-    counts, all_day_dates = _get_booking_counts(business_id)
+    counts, all_day_dates = _get_booking_counts(business_id, tz=tz)
     max_cap = _get_max_capacity(business_id)
     return [
-        s for s in _generate_template(business_hours=business_hours)
+        s for s in _generate_template(business_hours=business_hours, tz=tz)
         if s["date_raw"] not in all_day_dates
         and counts.get((s["date_raw"], s["time"]), 0) < max_cap
     ]
 
 
-def get_all_slots(business_id: str = None) -> list[dict]:
+def get_all_slots(business_id: str = None, business_hours: dict = None, tz: str = None) -> list[dict]:
     """Return all slots (booked + available) for the next 7 days."""
-    today = date.today()
+    today = business_today(tz)
     start = (today + timedelta(days=1)).isoformat()
     end = (today + timedelta(days=7)).isoformat()
 
@@ -149,7 +150,7 @@ def get_all_slots(business_id: str = None) -> list[dict]:
         booked_by_key[(b["slot_date"], b["slot_time"])] = b
 
     result = []
-    for s in _generate_template():
+    for s in _generate_template(business_hours=business_hours, tz=tz):
         key = (s["date_raw"], s["time"])
         if key in booked_by_key:
             b = booked_by_key[key]
@@ -250,6 +251,7 @@ def find_and_book(
     notes: str = "",
     business_id: str = None,
     business_hours: dict = None,
+    tz: str = None,
 ) -> Optional[dict]:
     """Find best matching available slot and book it."""
     import re
@@ -262,7 +264,7 @@ def find_and_book(
         hour, meridiem = int(hour_match.group(1)), hour_match.group(2)
         is_morning = meridiem == "am"
         is_afternoon = meridiem == "pm" and hour != 12
-    for slot in get_available_slots(business_id, business_hours=business_hours):
+    for slot in get_available_slots(business_id, business_hours=business_hours, tz=tz):
         if day_hint not in slot["date_short"].lower():
             continue
         if is_morning and slot["period"] != "morning":
@@ -273,8 +275,8 @@ def find_and_book(
     return None
 
 
-def format_slots_for_prompt(business_id: str = None, business_hours: dict = None) -> str:
-    available = get_available_slots(business_id, business_hours=business_hours)
+def format_slots_for_prompt(business_id: str = None, business_hours: dict = None, tz: str = None) -> str:
+    available = get_available_slots(business_id, business_hours=business_hours, tz=tz)
     if not available:
         return "No availability this week — customer must call the emergency line."
     by_day: dict[str, list[str]] = {}

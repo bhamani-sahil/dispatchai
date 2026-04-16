@@ -133,7 +133,7 @@ async def handle_schedule_scan(business_id: str) -> dict:
 async def handle_text_customer(message: str, business_id: str) -> str:
     """Find a booking from natural language hint and send an SMS to that customer."""
     from app.services.calendar_service import get_all_slots
-    from app.services.telnyx_service import send_sms
+    from app.services.twilio_service import send_sms
 
     slots = get_all_slots(business_id)
     booked = [s for s in slots if s.get("booked")]
@@ -210,7 +210,7 @@ async def handle_text_customer(message: str, business_id: str) -> str:
     # Capitalise first letter
     msg_to_send = msg_to_send[0].upper() + msg_to_send[1:]
 
-    await send_sms(to=phone, body=msg_to_send)
+    send_sms(to=phone, body=msg_to_send)
     return f"✓ Sent to {phone} ({slot_label}):\n\"{msg_to_send}\""
 
 
@@ -326,7 +326,7 @@ If a price isn't mentioned, use the service default price above. If no match, us
 # ---------------------------------------------------------------------------
 
 async def handle_forward(message: str, business_id: str) -> str:
-    from app.services.telnyx_service import send_sms
+    from app.services.twilio_service import send_sms
 
     # Extract phone number
     phone_m = re.search(r"\+?1?\s*\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}", message)
@@ -344,7 +344,7 @@ async def handle_forward(message: str, business_id: str) -> str:
         phone = re.sub(r"[\s().+-]", "", phone_m.group())
         if not phone.startswith("+"):
             phone = "+1" + phone[-10:]
-        await send_sms(to=phone, body=content)
+        send_sms(to=phone, body=content)
         return f"✓ Sent via SMS to {phone}."
 
     if email_m:

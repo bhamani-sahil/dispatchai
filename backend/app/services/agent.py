@@ -123,10 +123,15 @@ async def generate_response(prompt: str) -> tuple[str, float]:
                 contents=prompt,
             )
             text = response.text.strip()
-            if len(text) > 155:
-                cut = text[:155]
-                last_period = max(cut.rfind('.'), cut.rfind('!'), cut.rfind('?'))
-                text = cut[:last_period + 1] if last_period > 80 else cut
+            if len(text) > 160:
+                cut = text[:160]
+                last_end = max(cut.rfind('.'), cut.rfind('!'), cut.rfind('?'))
+                if last_end > 80:
+                    text = cut[:last_end + 1]
+                else:
+                    # Word boundary — never cut mid-word
+                    last_space = cut.rfind(' ')
+                    text = cut[:last_space].rstrip() if last_space > 80 else cut
             _track(prompt, text, "response")
             return text, 0.85
         except Exception as e:

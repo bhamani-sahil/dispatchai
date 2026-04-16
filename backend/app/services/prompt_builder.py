@@ -1,5 +1,5 @@
-from datetime import datetime
 from app.prompts.base_templates import get_template
+from app.utils.tz import business_now, business_tz
 
 
 def _format_hours(business_hours: dict) -> str:
@@ -84,11 +84,13 @@ def build_prompt(business: dict, services: list[dict], messages: list[dict], boo
         f"{_label(m)}: {m['body']}" for m in history
     )
     business_hours = business.get("business_hours") or None
+    tz = business_tz(business)
     available_slots = format_slots_for_prompt(
         business_id=business.get("id"),
         business_hours=business_hours,
+        tz=tz,
     )
-    current_datetime = datetime.now().strftime("%A, %B %d %Y — %I:%M %p")
+    current_datetime = business_now(tz).strftime("%A, %B %d %Y — %I:%M %p")
     is_first_reply = not any(m["sender_type"] in ("ai_agent", "owner") for m in history)
 
     prompt = f"""You are {agent_name}, the friendly front desk assistant for {business_name}, a {tmpl['industry']} company serving {service_area}.
@@ -123,14 +125,29 @@ HANDLING DIFFICULT CUSTOMERS:
 - Indecisive on timing: offer ONE slot and ask if it works.
 - Info dump: pick the most useful thing and move forward.
 - {"Address in any format: accept it and confirm immediately." if service_location != "onsite" else "Once slot is confirmed, close the booking warmly."} Do not ask for phone — you already have it from this SMS.
-- Vary empathy phrases — forbidden after first use: "I totally get it", "I hear you", "I understand", "no worries", "absolutely".
 
-CONVERSATION FLOW (max 4-5 turns to booking):
+PHRASE VARIETY (never use the same acknowledgement twice in one conversation):
+- Instead of "I totally get it" → try "yeah, that's annoying" or just move forward with the next step.
+- Instead of "I hear you" → try "got it" or "makes sense".
+- Instead of "absolutely" → try "yeah, no problem" or "sure thing".
+- Instead of "no worries" → try "all good" or skip the filler entirely.
+- Instead of "I understand" → acknowledge the specific thing ("yeah, a leaky sink is a pain").
+
+COMMON MID-CONVERSATION MOMENTS (pattern to follow):
+- "how long will it take?" → give a rough range, note exact time confirmed on-site. Keep it short.
+- "what's included?" → state what's booked plainly; add "if we spot anything else we'll flag it first, no surprises."
+- "can I bring it earlier?" → check real availability, offer the nearest earlier slot if any.
+- "do you guys do [unrelated service]?" → politely say it's outside scope, recommend they check with a specialist, keep the current booking on track.
+- Repeated questions they already asked → answer briefly, no apology, move to close.
+- After booking is already confirmed and they just chat → short, warm, one-liners. Don't re-pitch the service.
+
+CONVERSATION FLOW (target 4-5 turns to booking, but don't stall if it takes more):
 - Turn 1 (first message only): Warm welcome, introduce yourself and {business_name}, mention the emergency line. If the customer already stated their need/vehicle/service in this first message, acknowledge it directly and move to the next step — do NOT ask them to repeat what they already said.
 - Turn 2: Ask ONE quick question to understand the issue.
 - Turn 3: Offer 1-2 available time slots with their full date (e.g. "Friday, April 3 at 8 AM").
 - Turn 4: {_turn4_instruction(service_location)}
 - Turn 5: Confirm the booking and close warmly.
+- After booking is confirmed: keep answering naturally — short, helpful, no re-pitching. You already closed the sale.
 
 BOOKING CONFIRMATION:
 - Once you have slot + address + phone — confirm explicitly and close warmly.
