@@ -18,8 +18,8 @@ _usage = {
 
 
 def get_usage() -> dict:
-    cost_per_1k_input = 0.000075   # gemini-2.5-flash input $/1k tokens (approx)
-    cost_per_1k_output = 0.0003    # gemini-2.5-flash output $/1k tokens (approx)
+    cost_per_1k_input = 0.00004    # gemini-3.1-flash-lite-preview input $/1k tokens (approx)
+    cost_per_1k_output = 0.00015   # gemini-3.1-flash-lite-preview output $/1k tokens (approx)
     estimated_cost = (
         (_usage["estimated_input_tokens"] / 1000) * cost_per_1k_input +
         (_usage["estimated_output_tokens"] / 1000) * cost_per_1k_output
@@ -98,7 +98,7 @@ async def generate_json(prompt: str) -> str:
     for attempt in range(3):
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3.1-flash-lite-preview",
                 contents=prompt,
             )
             text = response.text.strip()
@@ -109,7 +109,7 @@ async def generate_json(prompt: str) -> str:
             _usage["errors"] += 1
             print(f"Gemini JSON error (attempt {attempt + 1}/3): {e}")
             if attempt < 2:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(4 * (2 ** attempt))  # 4s, 8s — gives capacity room to recover
     print(f"Gemini JSON failed after 3 attempts: {last_err}")
     return ""
 
@@ -119,7 +119,7 @@ async def generate_response(prompt: str) -> tuple[str, float]:
     for attempt in range(3):
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3.1-flash-lite-preview",
                 contents=prompt,
             )
             text = response.text.strip()
@@ -139,7 +139,7 @@ async def generate_response(prompt: str) -> tuple[str, float]:
             _usage["errors"] += 1
             print(f"Gemini error (attempt {attempt + 1}/3): {e}")
             if attempt < 2:
-                await asyncio.sleep(2 ** attempt)  # 1s, 2s
+                await asyncio.sleep(4 * (2 ** attempt))  # 4s, 8s — gives capacity room to recover
     print(f"Gemini failed after 3 attempts: {last_err}")
     return "Thank you for reaching out! We'll have someone contact you shortly.", 0.0
 
@@ -163,7 +163,7 @@ Dispatcher note:"""
             if attempt == 0:
                 await asyncio.sleep(2)
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3.1-flash-lite-preview",
                 contents=prompt,
             )
             text = response.text.strip()[:120]
