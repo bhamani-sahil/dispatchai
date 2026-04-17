@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routes import health, auth, webhooks, conversations, business, brain, documents, dashboard
+from app.routes import health, auth, webhooks, conversations, business, brain, documents, dashboard, voice_tools
 
 app = FastAPI(title="DispatchAI API", version="0.1.0")
 
@@ -21,3 +21,4 @@ app.include_router(business.router)
 app.include_router(brain.router)
 app.include_router(documents.router)
 app.include_router(dashboard.router)
+app.include_router(voice_tools.router)
