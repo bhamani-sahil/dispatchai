@@ -13,7 +13,7 @@ import json
 import os
 from fastapi import APIRouter, Request
 from app.utils.supabase_client import supabase_service
-from app.services.calendar_service import format_slots_for_prompt, find_and_book
+from app.services.calendar_service import get_available_slots, find_and_book
 from app.utils.tz import business_tz
 
 router = APIRouter(prefix="/api/voice/tools")
@@ -59,13 +59,29 @@ async def get_slots(request: Request):
     biz = _resolve_business()
     if not biz:
         return _tool_response(tc_id, "No business configured yet.")
-    slots = format_slots_for_prompt(
+    all_slots = get_available_slots(
         business_id=biz["id"],
         business_hours=biz.get("business_hours"),
         tz=business_tz(biz),
     )
-    print(f"[voice-tool get-slots] biz={biz['id']}")
-    return _tool_response(tc_id, slots)
+    # Compact voice-friendly output — next 3 days, up to 2 slots per day
+    by_day: dict[str, list[str]] = {}
+    day_order: list[str] = []
+    for s in all_slots:
+        d = s["date"]
+        if d not in by_day:
+            if len(day_order) >= 3:
+                continue
+            day_order.append(d)
+            by_day[d] = []
+        if len(by_day[d]) < 2:
+            by_day[d].append(s["time"])
+    if not by_day:
+        result = "No availability in the next week."
+    else:
+        result = "; ".join(f"{d}: {', '.join(times)}" for d, times in by_day.items())
+    print(f"[voice-tool get-slots] biz={biz['id']} result={result}")
+    return _tool_response(tc_id, result)
 
 
 @router.post("/book-slot")
