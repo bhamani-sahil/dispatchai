@@ -166,10 +166,10 @@ function OverviewTab() {
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard icon={TrendingUp} label="Revenue"   value={data?.revenue     ? `$${data.revenue}` : "$0"}       accent="#4F6EF7" bg="#EEF2FF" />
-            <StatCard icon={Clock}      label="Time Saved" value={data?.time_saved  ? `${data.time_saved}h` : "0h"}    accent="#8B5CF6" bg="#F3E8FF" />
-            <StatCard icon={Calendar}   label="Bookings"  value={data?.bookings ?? 0}                                  accent="#10B981" bg="#D1FAE5" />
-            <StatCard icon={Star}       label="AI Score"  value={data?.ai_score    ? `${data.ai_score}%` : "—"}        accent="#F59E0B" bg="#FEF3C7" />
+            <StatCard icon={TrendingUp} label="Revenue"   value={data?.revenue_converted ? `$${data.revenue_converted}` : "$0"}     accent="#4F6EF7" bg="#EEF2FF" />
+            <StatCard icon={Clock}      label="Time Saved" value={data?.time_saved_hours ? `${data.time_saved_hours}h` : "0h"}     accent="#8B5CF6" bg="#F3E8FF" />
+            <StatCard icon={Calendar}   label="Bookings"  value={data?.total_bookings ?? 0}                                        accent="#10B981" bg="#D1FAE5" />
+            <StatCard icon={Star}       label="AI Score"  value={data?.conversion_rate ? `${data.conversion_rate}%` : "—"}         accent="#F59E0B" bg="#FEF3C7" />
           </div>
 
           {/* Upcoming jobs */}
@@ -177,9 +177,9 @@ function OverviewTab() {
             <div className="px-5 py-4 border-b border-black/[0.05]">
               <h2 className="text-sm font-semibold text-[#0F172A]">Upcoming Jobs</h2>
             </div>
-            {data?.upcoming?.length ? (
+            {data?.upcoming_jobs?.length ? (
               <div className="divide-y divide-black/[0.04]">
-                {data.upcoming.map(job => (
+                {data.upcoming_jobs.map(job => (
                   <div key={job.id} className="flex items-center gap-4 px-5 py-3.5">
                     <div className="w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0"
                       style={{ background: "linear-gradient(135deg, rgba(79,110,247,0.08), rgba(124,92,252,0.06))" }}>

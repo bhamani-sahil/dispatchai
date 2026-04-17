@@ -4,21 +4,23 @@ Slots are generated fresh (next 7 days template).
 Bookings are persisted to Supabase so they survive restarts.
 """
 
+import re
 from datetime import date, timedelta
 from typing import Optional
 from app.utils.supabase_client import supabase_service
 from app.utils.tz import business_today
 
-WEEKDAY_SLOTS = [
-    {"time": "8:00-10:00am",   "period": "morning"},
-    {"time": "10:00am-12:00pm","period": "morning"},
-    {"time": "1:00-3:00pm",    "period": "afternoon"},
-    {"time": "3:00-5:00pm",    "period": "afternoon"},
-]
-SATURDAY_SLOTS = [
-    {"time": "9:00-11:00am",   "period": "morning"},
-    {"time": "11:00am-1:00pm", "period": "morning"},
-]
+SLOT_MINUTES = 90  # 1.5-hour booking blocks
+
+DEFAULT_HOURS = {
+    "monday":    {"open": "08:00", "close": "17:00"},
+    "tuesday":   {"open": "08:00", "close": "17:00"},
+    "wednesday": {"open": "08:00", "close": "17:00"},
+    "thursday":  {"open": "08:00", "close": "17:00"},
+    "friday":    {"open": "08:00", "close": "17:00"},
+    "saturday":  {"open": "09:00", "close": "13:00"},
+    "sunday":    None,
+}
 
 
 def _slot_id(date_raw: str, time: str) -> str:
@@ -29,28 +31,61 @@ def _slot_id(date_raw: str, time: str) -> str:
 _DAY_NAMES = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
 
-def _generate_template(days_ahead: int = 7, business_hours: dict = None, tz: str = None) -> list[dict]:
-    """Generate the next N days of slot templates (no booking state).
+def _resolve_hours(business_hours: dict | None) -> dict:
+    return business_hours if business_hours is not None else DEFAULT_HOURS
 
-    If business_hours is provided (dict keyed by lowercase day name), only
-    generate slots for days that are open. Sunday is always skipped.
-    """
+
+def _parse_hhmm(s: str) -> int:
+    """'HH:MM' -> minutes-of-day."""
+    h, m = s.split(":")
+    return int(h) * 60 + int(m)
+
+
+def _fmt_clock(minutes: int) -> tuple[str, str]:
+    """Return (time_str, meridiem). 90 -> ('1:30', 'am'), 780 -> ('1:00', 'pm')."""
+    h, m = divmod(minutes, 60)
+    meridiem = "am" if h < 12 else "pm"
+    h12 = h % 12 or 12
+    return (f"{h12}:{m:02d}" if m else f"{h12}:00", meridiem)
+
+
+def _slot_label(start_min: int, end_min: int) -> str:
+    """'8:00-9:30am' or '11:00am-12:30pm' (cross-meridiem)."""
+    s_t, s_mer = _fmt_clock(start_min)
+    e_t, e_mer = _fmt_clock(end_min)
+    return f"{s_t}-{e_t}{e_mer}" if s_mer == e_mer else f"{s_t}{s_mer}-{e_t}{e_mer}"
+
+
+def _slots_for_window(open_str: str, close_str: str) -> list[dict]:
+    """Slice an open-close window into SLOT_MINUTES blocks."""
+    start = _parse_hhmm(open_str)
+    end = _parse_hhmm(close_str)
+    out = []
+    cur = start
+    while cur + SLOT_MINUTES <= end:
+        nxt = cur + SLOT_MINUTES
+        out.append({
+            "time": _slot_label(cur, nxt),
+            "period": "morning" if cur < 12 * 60 else "afternoon",
+            "start_min": cur,
+            "end_min": nxt,
+        })
+        cur = nxt
+    return out
+
+
+def _generate_template(days_ahead: int = 7, business_hours: dict = None, tz: str = None) -> list[dict]:
+    """Generate the next N days of slot templates from configured hours."""
     today = business_today(tz)
-    print(f"[calendar] _generate_template called, business_hours keys = {list(business_hours.keys()) if business_hours else None}")
+    hours = _resolve_hours(business_hours)
     slots = []
     for i in range(1, days_ahead + 1):
         d = today + timedelta(days=i)
-        weekday = d.weekday()
-        day_name = _DAY_NAMES[weekday]
-        # If business hours provided, skip days that are absent or have no hours (closed)
-        if business_hours is not None and not business_hours.get(day_name):
-            print(f"[calendar] Skipping {day_name} ({d.isoformat()}) — closed")
+        day_name = _DAY_NAMES[d.weekday()]
+        window = hours.get(day_name)
+        if not window:
             continue
-        elif business_hours is None and weekday == 6:
-            # No hours config — default Sunday closed
-            continue
-        times = SATURDAY_SLOTS if weekday == 5 else WEEKDAY_SLOTS
-        for s in times:
+        for s in _slots_for_window(window["open"], window["close"]):
             slots.append({
                 "id": _slot_id(d.isoformat(), s["time"]),
                 "date": d.strftime("%A, %B %d"),
@@ -62,31 +97,29 @@ def _generate_template(days_ahead: int = 7, business_hours: dict = None, tz: str
     return slots
 
 
-def _normalize_to_template_slot(slot_time: str, slot_date: str) -> str:
+def _normalize_to_template_slot(slot_time: str, slot_date: str, business_hours: dict = None) -> str:
     """
-    Convert hour-based manual booking times (e.g. "08:00") to template range strings
-    (e.g. "8:00-10:00am") so they match the availability template.
-    Already-ranged strings (contain '-' or 'am'/'pm') are returned as-is.
+    Convert hour-based manual booking times (e.g. '09:00') to the matching
+    1.5h block label. Labeled slots pass through unchanged.
     """
-    if '-' in slot_time or 'am' in slot_time or 'pm' in slot_time:
+    low = slot_time.lower()
+    if '-' in slot_time and ('am' in low or 'pm' in low):
         return slot_time
     try:
-        hour = int(slot_time.split(':')[0])
-        weekday = date.fromisoformat(slot_date).weekday()
-        if weekday == 5:  # Saturday
-            if hour in (9, 10):  return "9:00-11:00am"
-            if hour in (11, 12): return "11:00am-1:00pm"
-        else:  # Mon–Fri
-            if hour in (8, 9):   return "8:00-10:00am"
-            if hour in (10, 11): return "10:00am-12:00pm"
-            if hour in (13, 14): return "1:00-3:00pm"
-            if hour in (15, 16): return "3:00-5:00pm"
-    except (ValueError, IndexError):
+        start_min = _parse_hhmm(slot_time)
+        day_name = _DAY_NAMES[date.fromisoformat(slot_date).weekday()]
+        window = _resolve_hours(business_hours).get(day_name)
+        if not window:
+            return slot_time
+        for s in _slots_for_window(window["open"], window["close"]):
+            if s["start_min"] <= start_min < s["end_min"]:
+                return s["time"]
+    except Exception:
         pass
     return slot_time
 
 
-def _get_booking_counts(business_id: str = None, tz: str = None) -> tuple[dict[tuple, int], set[str]]:
+def _get_booking_counts(business_id: str = None, business_hours: dict = None, tz: str = None) -> tuple[dict[tuple, int], set[str]]:
     """
     Fetch booking counts per (date, time) slot and all-day blocked dates.
     Returns (counts dict, all_day_dates set).
@@ -106,7 +139,7 @@ def _get_booking_counts(business_id: str = None, tz: str = None) -> tuple[dict[t
         if b["slot_time"] == "all-day":
             all_day_dates.add(b["slot_date"])
         else:
-            normalized = _normalize_to_template_slot(b["slot_time"], b["slot_date"])
+            normalized = _normalize_to_template_slot(b["slot_time"], b["slot_date"], business_hours)
             key = (b["slot_date"], normalized)
             counts[key] = counts.get(key, 0) + 1
     return counts, all_day_dates
@@ -124,7 +157,7 @@ def _get_max_capacity(business_id: str = None) -> int:
 
 def get_available_slots(business_id: str = None, business_hours: dict = None, tz: str = None) -> list[dict]:
     """Return all slots with remaining capacity for the next 7 days."""
-    counts, all_day_dates = _get_booking_counts(business_id, tz=tz)
+    counts, all_day_dates = _get_booking_counts(business_id, business_hours=business_hours, tz=tz)
     max_cap = _get_max_capacity(business_id)
     return [
         s for s in _generate_template(business_hours=business_hours, tz=tz)
@@ -202,8 +235,9 @@ def book_slot(
     if slot_count >= max_cap:
         return None  # Slot at capacity
 
-    # Figure out period
-    period = "morning" if any(t in time for t in ["8:00", "9:00", "10:00", "11:00"]) else "afternoon"
+    # Figure out period — morning if the FIRST am/pm in the label is 'am'
+    first_mer = re.search(r"(am|pm)", time.lower())
+    period = "morning" if first_mer and first_mer.group(1) == "am" else "afternoon"
 
     record = {
         "slot_date": date_raw,
