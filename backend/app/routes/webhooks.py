@@ -9,7 +9,11 @@ from app.services.twilio_service import send_sms
 from app.services.calendar_service import get_available_slots, book_slot, find_and_book
 from app.utils.tz import business_today, business_tz
 
-DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+# Map abbreviations to canonical day name — Flash-Lite often abbreviates ("Sat", "Sun")
+DAY_ABBREV = {"mon": "monday", "tue": "tuesday", "tues": "tuesday", "wed": "wednesday",
+              "thu": "thursday", "thur": "thursday", "thurs": "thursday",
+              "fri": "friday", "sat": "saturday", "sun": "sunday"}
 
 router = APIRouter()
 
@@ -217,18 +221,21 @@ async def _detect_and_book(ai_text: str, messages: list[dict], customer_phone: s
     text = ai_text.lower()
     if not any(w in text for w in ["booked!", "booked,", "booked ✓", "see you monday", "see you tuesday",
                                     "see you wednesday", "see you thursday", "see you friday", "see you saturday",
+                                    "see you sunday",
                                     "all set for monday", "all set for tuesday", "all set for wednesday",
                                     "all set for thursday", "all set for friday", "all set for saturday",
+                                    "all set for sunday",
                                     "you're all set", "you are all set", "confirmed for"]):
         return
     # Step 1: extract day from direct confirmation phrases (most reliable)
     best_day = None
     direct_m = re.search(
-        r"(?:see you|booked(?: you)? for|all set for|confirmed for)\s+(monday|tuesday|wednesday|thursday|friday|saturday)",
+        r"(?:see you|booked(?: you)? for|all set for|confirmed for)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)\b",
         text,
     )
     if direct_m:
-        best_day = direct_m.group(1)
+        raw = direct_m.group(1)
+        best_day = DAY_ABBREV.get(raw, raw)
 
     # Step 2: fall back to whichever day appears LAST in the text
     # (avoids grabbing an earlier-mentioned day like "sorry, monday is full")
@@ -239,6 +246,12 @@ async def _detect_and_book(ai_text: str, messages: list[dict], customer_phone: s
             if pos > best_pos:
                 best_pos = pos
                 best_day = day
+        # Check abbreviations too (Flash-Lite sometimes shortens day names)
+        for abbr, full in DAY_ABBREV.items():
+            pos = re.search(rf"\b{abbr}\b", text)
+            if pos and pos.start() > best_pos:
+                best_pos = pos.start()
+                best_day = full
 
     if not best_day:
         return
