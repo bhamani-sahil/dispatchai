@@ -101,22 +101,37 @@ export default function Features() {
               <motion.div
                 key={feature.title}
                 variants={itemVariants}
+                whileHover={{ y: -4, transition: { duration: 0.25, ease: "easeOut" } }}
                 data-testid={`feature-card-${feature.title.toLowerCase().replace(/\s+/g, '-')}`}
-                className={`${feature.span} feature-card glass-card rounded-2xl p-7 md:p-8 relative overflow-hidden group`}
+                className={`${feature.span} rounded-2xl p-7 md:p-8 relative overflow-hidden group cursor-default`}
+                style={{
+                  background: "linear-gradient(145deg, rgba(255,255,255,0.92) 0%, rgba(248,249,252,0.85) 100%)",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9)",
+                  border: "1px solid rgba(0,0,0,0.06)",
+                  transition: "box-shadow 0.35s ease, border-color 0.35s ease",
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.boxShadow = "0 0 0 1.5px #4F6EF7, 0 0 18px rgba(79,110,247,0.25), 0 0 40px rgba(151,117,250,0.15), 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.95)";
+                  e.currentTarget.style.borderColor = "transparent";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9)";
+                  e.currentTarget.style.borderColor = "rgba(0,0,0,0.06)";
+                }}
               >
-                {/* Subtle gradient overlay on hover */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-                  style={{
-                    background: `radial-gradient(circle at 30% 30%, rgba(79, 110, 247, 0.04), transparent 60%)`,
-                  }}
+                {/* Glossy shimmer overlay */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl"
+                  style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%, rgba(151,117,250,0.04) 100%)" }}
                 />
 
                 <div className="relative z-10">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center border border-[#4F6EF7]/10 bg-[#4F6EF7]/[0.05] mb-5 group-hover:bg-[#4F6EF7]/[0.08] transition-colors duration-300">
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center border border-[#4F6EF7]/10 bg-[#4F6EF7]/[0.05] mb-5 group-hover:bg-[#4F6EF7]/[0.1] transition-colors duration-300">
                     <Icon className="w-5 h-5 text-[#4F6EF7]" strokeWidth={1.5} />
                   </div>
                   <h3
-                    className="text-lg font-medium text-[#0F172A] mb-2"
+                    className="text-lg font-bold text-[#0F172A] mb-2"
                     style={{ fontFamily: "'Outfit', sans-serif" }}
                   >
                     {feature.title}

@@ -10,10 +10,10 @@ const navLinks = [
 ];
 
 const CueDeskLogo = () => (
-  <div className="flex items-center gap-2.5 group">
-    <img src="/cuedesk-icon.svg" alt="CueDesk" className="w-8 h-8" />
-    <span className="text-[1.15rem] font-semibold tracking-tight text-[#0F172A]" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      CueDesk
+  <div className="flex items-center gap-2 group">
+    <img src="/cuedesk-icon.svg" alt="CueDesk" className="w-9 h-9" />
+    <span className="text-[1.25rem] font-semibold tracking-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <span style={{ background: "linear-gradient(135deg, #4F6EF7 0%, #9775FA 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Cue</span><span className="text-[#0F172A]">Desk</span>
     </span>
   </div>
 );
