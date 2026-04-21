@@ -11,20 +11,7 @@ const navLinks = [
 
 const CueDeskLogo = () => (
   <div className="flex items-center gap-2.5 group">
-    <div className="w-8 h-8 relative flex items-center justify-center">
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <defs>
-          <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#4F6EF7"/>
-            <stop offset="100%" stopColor="#9775FA"/>
-          </linearGradient>
-        </defs>
-        {/* Bold C arc with notch — signal/cue concept */}
-        <path d="M24 8.5A11 11 0 1 0 24 23.5" stroke="url(#logoGrad)" strokeWidth="4.5" strokeLinecap="round" fill="none"/>
-        {/* Notification dot */}
-        <circle cx="25" cy="8.5" r="3" fill="#9775FA"/>
-      </svg>
-    </div>
+    <img src="/cuedesk-icon.svg" alt="CueDesk" className="w-8 h-8" />
     <span className="text-[1.15rem] font-semibold tracking-tight text-[#0F172A]" style={{ fontFamily: "'Outfit', sans-serif" }}>
       CueDesk
     </span>
