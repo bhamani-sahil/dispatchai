@@ -1,3 +1,8 @@
+@keyframes ledBorderSpin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
 /* Gradient text utility */
 .gradient-text {
   background: linear-gradient(to bottom, #0F172A 0%, #334155 100%);

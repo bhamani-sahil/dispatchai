@@ -110,23 +110,32 @@ export default function Features() {
                   WebkitBackdropFilter: "blur(20px)",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9)",
                   border: "1px solid rgba(0,0,0,0.06)",
-                  transition: "box-shadow 0.35s ease, border-color 0.35s ease",
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.boxShadow = "0 0 0 1.5px #4F6EF7, 0 0 18px rgba(79,110,247,0.25), 0 0 40px rgba(151,117,250,0.15), 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.95)";
-                  e.currentTarget.style.borderColor = "transparent";
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9)";
-                  e.currentTarget.style.borderColor = "rgba(0,0,0,0.06)";
                 }}
               >
-                {/* Glossy shimmer overlay */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl"
-                  style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%, rgba(151,117,250,0.04) 100%)" }}
+                {/* Spinning LED border */}
+                <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                  style={{ inset: 0, zIndex: 0 }}>
+                  <div style={{
+                    position: "absolute",
+                    top: "50%", left: "50%",
+                    width: "220%", height: "220%",
+                    background: "conic-gradient(from 0deg, transparent 0deg, #4F6EF7 50deg, #9775FA 100deg, transparent 150deg)",
+                    animation: "ledBorderSpin 2.5s linear infinite",
+                  }} />
+                  <div style={{
+                    position: "absolute",
+                    inset: "1.5px",
+                    borderRadius: "14px",
+                    background: "linear-gradient(145deg, rgba(255,255,255,0.97) 0%, rgba(248,249,252,0.94) 100%)",
+                  }} />
+                </div>
+
+                {/* Glossy shimmer */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                  style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 50%)", zIndex: 1 }}
                 />
 
-                <div className="relative z-10">
+                <div className="relative" style={{ zIndex: 2 }}>
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center border border-[#4F6EF7]/10 bg-[#4F6EF7]/[0.05] mb-5 group-hover:bg-[#4F6EF7]/[0.1] transition-colors duration-300">
                     <Icon className="w-5 h-5 text-[#4F6EF7]" strokeWidth={1.5} />
                   </div>
