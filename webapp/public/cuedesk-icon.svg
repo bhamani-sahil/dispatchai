@@ -1,0 +1,17 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F6EF7"></stop>
+      <stop offset="100%" stop-color="#9775FA"></stop>
+    </linearGradient>
+  </defs>
+
+  
+  <path d="&#xA;    M 30.72 20.48&#xA;    Q 30.72 15.36 35.84 15.36&#xA;    L 220.16 15.36&#xA;    Q 225.28 15.36 225.28 20.48&#xA;    L 225.28 174.08&#xA;    Q 225.28 179.2 220.16 179.2&#xA;    L 97.28 179.2&#xA;    Q 81.92 199.68 30.72 230.4&#xA;    Q 46.08 199.68 56.32 179.2&#xA;    L 35.84 179.2&#xA;    Q 30.72 179.2 30.72 174.08&#xA;    Z&#xA;  " fill="url(#grad)"></path>
+
+  
+  <polyline points="60,72 94,113 60,154" stroke="white" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" fill="none"></polyline>
+
+  
+  <line x1="131" y1="138" x2="189" y2="138" stroke="white" stroke-width="15" stroke-linecap="round" opacity="0.88"></line>
+</svg>
